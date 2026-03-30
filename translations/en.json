@@ -50,7 +50,11 @@
             "temperature": "Temperature",
             "top_k": "Top K",
             "max_tokens": "Max Tokens",
-            "max_history_messages": "Max History Messages"
+            "max_history_messages": "Max History Messages",
+            "long_memory_enabled": "Long-term Memory",
+            "long_memory_update_turns": "Memory Update Turns",
+            "long_memory_max_chars": "Memory Max Characters",
+            "long_memory_pinned": "Pinned Memory"
           },
           "data_description":  {
             "recommended": "Use recommended settings",
@@ -60,7 +64,11 @@
             "custom_api_key": "Custom API key (leave empty to use main key)",
             "temperature": "Control creativity (0-2)",
             "max_tokens": "Maximum response length",
-            "max_history_messages": "Number of history messages to keep"
+            "max_history_messages": "Number of history messages to keep",
+            "long_memory_enabled": "Enable long-term summary memory",
+            "long_memory_update_turns": "Update long-term memory every N conversation turns",
+            "long_memory_max_chars": "Maximum length of long-term memory summary",
+            "long_memory_pinned": "Pinned facts or preferences that should always be remembered"
           }
         }
       }

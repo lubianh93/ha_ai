@@ -168,6 +168,10 @@ CONF_TOP_K: Final = "top_k"
 CONF_LLM_HASS_API: Final = "llm_hass_api"
 CONF_RECOMMENDED: Final = "recommended"
 CONF_MAX_HISTORY_MESSAGES: Final = "max_history_messages"
+CONF_LONG_MEMORY_ENABLED: Final = "long_memory_enabled"
+CONF_LONG_MEMORY_UPDATE_TURNS: Final = "long_memory_update_turns"
+CONF_LONG_MEMORY_MAX_CHARS: Final = "long_memory_max_chars"
+CONF_LONG_MEMORY_PINNED: Final = "long_memory_pinned"
 
 # TTS Configuration
 CONF_TTS_VOICE: Final = "voice"
@@ -185,6 +189,10 @@ RECOMMENDED: Final[dict[str, Any]] = {
     "top_k": 1,
     "max_tokens": 250,
     "max_history_messages": 30,
+    "long_memory_enabled": True,
+    "long_memory_update_turns": 8,
+    "long_memory_max_chars": 1200,
+    "long_memory_pinned": "",
     # AI Task
     "ai_task_model": "Qwen/Qwen3-8B",
     "ai_task_temperature": 0.95,
@@ -204,6 +212,10 @@ RECOMMENDED_TEMPERATURE: Final = RECOMMENDED["temperature"]
 RECOMMENDED_TOP_P: Final = RECOMMENDED["top_p"]
 RECOMMENDED_TOP_K: Final = RECOMMENDED["top_k"]
 RECOMMENDED_MAX_TOKENS: Final = RECOMMENDED["max_tokens"]
+RECOMMENDED_LONG_MEMORY_ENABLED: Final = RECOMMENDED["long_memory_enabled"]
+RECOMMENDED_LONG_MEMORY_UPDATE_TURNS: Final = RECOMMENDED["long_memory_update_turns"]
+RECOMMENDED_LONG_MEMORY_MAX_CHARS: Final = RECOMMENDED["long_memory_max_chars"]
+RECOMMENDED_LONG_MEMORY_PINNED: Final = RECOMMENDED["long_memory_pinned"]
 RECOMMENDED_MAX_HISTORY_MESSAGES: Final = RECOMMENDED["max_history_messages"]
 RECOMMENDED_AI_TASK_MODEL: Final = RECOMMENDED["ai_task_model"]
 RECOMMENDED_AI_TASK_TEMPERATURE: Final = RECOMMENDED["ai_task_temperature"]
@@ -383,6 +395,10 @@ RECOMMENDED_CONVERSATION_OPTIONS: Final = {
     CONF_TOP_K: RECOMMENDED_TOP_K,
     CONF_MAX_TOKENS: RECOMMENDED_MAX_TOKENS,
     CONF_MAX_HISTORY_MESSAGES: RECOMMENDED_MAX_HISTORY_MESSAGES,
+    CONF_LONG_MEMORY_ENABLED: RECOMMENDED_LONG_MEMORY_ENABLED,
+    CONF_LONG_MEMORY_UPDATE_TURNS: RECOMMENDED_LONG_MEMORY_UPDATE_TURNS,
+    CONF_LONG_MEMORY_MAX_CHARS: RECOMMENDED_LONG_MEMORY_MAX_CHARS,
+    CONF_LONG_MEMORY_PINNED: RECOMMENDED_LONG_MEMORY_PINNED,
 }
 
 RECOMMENDED_AI_TASK_OPTIONS: Final = {

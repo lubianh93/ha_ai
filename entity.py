@@ -26,14 +26,22 @@ from .const import (
     CONF_MAX_HISTORY_MESSAGES,
     CONF_MAX_TOKENS,
     CONF_TEMPERATURE,
+    CONF_LONG_MEMORY_ENABLED,
+    CONF_LONG_MEMORY_MAX_CHARS,
+    CONF_LONG_MEMORY_PINNED,
+    CONF_LONG_MEMORY_UPDATE_TURNS,
     DOMAIN,
     ERROR_GETTING_RESPONSE,
     RECOMMENDED_IMAGE_ANALYSIS_MODEL,
     RECOMMENDED_MAX_HISTORY_MESSAGES,
     RECOMMENDED_MAX_TOKENS,
     RECOMMENDED_TEMPERATURE,
+    RECOMMENDED_LONG_MEMORY_ENABLED,
+    RECOMMENDED_LONG_MEMORY_MAX_CHARS,
+    RECOMMENDED_LONG_MEMORY_UPDATE_TURNS,
 )
 from .markdown_filter import filter_markdown_streaming
+from .memory import get_memory_store
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -221,7 +229,252 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
             "temperature": options.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE),
             "max_tokens": options.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS),
         }
+    
+    def _get_pinned_memory_text(self) -> str:
+        """Render pinned memory from conversation config."""
+        raw = self.subentry.data.get(CONF_LONG_MEMORY_PINNED, "")
+        if not isinstance(raw, str) or not raw.strip():
+            return ""
 
+        items = []
+        for line in raw.splitlines():
+            line = line.strip().lstrip("-•").strip()
+            if line:
+                items.append(line)
+
+        if not items:
+            return ""
+
+        return "Pinned memory from configuration:\n" + "\n".join(f"- {item}" for item in items)
+        
+    async def _async_get_long_memory_message(self) -> dict[str, Any] | None:
+        """Build a system message for long-term memory."""
+        options = self.subentry.data
+        enabled = options.get(CONF_LONG_MEMORY_ENABLED, RECOMMENDED_LONG_MEMORY_ENABLED)
+        if not enabled:
+            return None
+
+        max_chars = options.get(CONF_LONG_MEMORY_MAX_CHARS, RECOMMENDED_LONG_MEMORY_MAX_CHARS)
+        if not isinstance(max_chars, int) or max_chars <= 0:
+            max_chars = RECOMMENDED_LONG_MEMORY_MAX_CHARS
+
+        store = get_memory_store(self.hass)
+        store_text = await store.async_get_memory_block(max_chars=max_chars)
+        pinned_text = self._get_pinned_memory_text()
+
+        parts = []
+        if pinned_text:
+            parts.append(pinned_text)
+        if store_text:
+            parts.append(store_text)
+
+        if not parts:
+            return None
+
+        return {
+            "role": "system",
+            "content": "\n\n".join(parts).strip(),
+        }
+    
+    def _build_recent_memory_snippet(self, chat_log: conversation.ChatLog, limit: int = 12) -> str:
+        """Build a compact text snippet from recent chat turns for memory summarization."""
+        items: list[str] = []
+
+        for content in chat_log.content:
+            role = getattr(content, "role", "")
+            if role not in ("user", "assistant", "tool_result"):
+                continue
+
+            text = _ensure_string(getattr(content, "content", ""))
+            text = text.strip()
+            if not text:
+                continue
+
+            if role == "user":
+                prefix = "User"
+            elif role == "assistant":
+                prefix = "Assistant"
+            else:
+                prefix = "Tool"
+
+            items.append(f"{prefix}: {text}")
+
+        if not items:
+            return ""
+
+        return "\n".join(items[-limit:])
+    
+    async def _async_generate_memory_summary(self, source_text: str, max_chars: int) -> str:
+        """Generate a concise long-term memory summary from recent dialogue."""
+        if not source_text.strip():
+            return ""
+
+        api_url = self.subentry.data.get(CONF_CHAT_URL) or AI_HUB_CHAT_URL
+        if not isinstance(api_url, str) or not api_url.strip():
+            api_url = AI_HUB_CHAT_URL
+
+        model_config = self._get_model_config()
+        model_name = model_config.get("model") or self.default_model
+        if not isinstance(model_name, str) or not model_name.strip():
+            model_name = self.default_model
+
+        prompt = (
+            "Summarize the conversation below for long-term assistant memory.\n"
+            "Keep only information that is likely useful in future conversations, such as:\n"
+            "- stable user preferences\n"
+            "- recurring home automation habits\n"
+            "- device naming conventions\n"
+            "- ongoing tasks or important persistent context\n"
+            "Do not keep temporary chit-chat.\n"
+            f"Return plain text only, under {max_chars} characters.\n"
+            "If there is nothing worth storing, return an empty string."
+        )
+
+        request_params = {
+            "model": model_name,
+            "stream": False,
+            "messages": [
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": source_text},
+            ],
+            "max_tokens": 300,
+            "temperature": 0.2,
+        }
+
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+        }
+
+        session = async_get_clientsession(self.hass)
+        async with session.post(
+            api_url,
+            json=request_params,
+            headers=headers,
+            timeout=aiohttp.ClientTimeout(total=60),
+        ) as response:
+            if response.status != 200:
+                error_text = await response.text()
+                raise HomeAssistantError(f"Memory summary request failed: {error_text}")
+
+            data = await response.json()
+
+        content = ""
+        try:
+            content = data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError):
+            _LOGGER.warning("Unexpected memory summary response format: %s", data)
+            return ""
+
+        return _ensure_string(content).strip()[:max_chars]
+    
+    async def _async_merge_memory_summary(self, old_summary: str, new_summary: str, max_chars: int) -> str:
+        """Merge existing long-term summary with a new summary chunk."""
+        old_summary = old_summary.strip()
+        new_summary = new_summary.strip()
+
+        if not old_summary:
+            return new_summary[:max_chars]
+        if not new_summary:
+            return old_summary[:max_chars]
+
+        api_url = self.subentry.data.get(CONF_CHAT_URL) or AI_HUB_CHAT_URL
+        if not isinstance(api_url, str) or not api_url.strip():
+            api_url = AI_HUB_CHAT_URL
+
+        model_config = self._get_model_config()
+        model_name = model_config.get("model") or self.default_model
+        if not isinstance(model_name, str) or not model_name.strip():
+            model_name = self.default_model
+
+        prompt = (
+            "Merge the existing long-term memory summary with the new memory summary.\n"
+            "Keep only stable, reusable information for future conversations.\n"
+            "Remove redundancy and temporary details.\n"
+            f"Return plain text only, under {max_chars} characters."
+        )
+
+        source_text = (
+            f"Existing long-term summary:\n{old_summary}\n\n"
+            f"New summary:\n{new_summary}"
+        )
+
+        request_params = {
+            "model": model_name,
+            "stream": False,
+            "messages": [
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": source_text},
+            ],
+            "max_tokens": 300,
+            "temperature": 0.2,
+        }
+
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+        }
+
+        session = async_get_clientsession(self.hass)
+        async with session.post(
+            api_url,
+            json=request_params,
+            headers=headers,
+            timeout=aiohttp.ClientTimeout(total=60),
+        ) as response:
+            if response.status != 200:
+                error_text = await response.text()
+                raise HomeAssistantError(f"Memory merge request failed: {error_text}")
+
+            data = await response.json()
+
+        content = ""
+        try:
+            content = data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError):
+            _LOGGER.warning("Unexpected memory merge response format: %s", data)
+            return new_summary[:max_chars]
+
+        return _ensure_string(content).strip()[:max_chars]
+    
+    async def _async_update_long_memory(self, chat_log: conversation.ChatLog) -> None:
+        """Update persistent long-term memory after a successful response."""
+        options = self.subentry.data
+        enabled = options.get(CONF_LONG_MEMORY_ENABLED, RECOMMENDED_LONG_MEMORY_ENABLED)
+        if not enabled:
+            return
+
+        update_turns = options.get(CONF_LONG_MEMORY_UPDATE_TURNS, RECOMMENDED_LONG_MEMORY_UPDATE_TURNS)
+        if not isinstance(update_turns, int) or update_turns <= 0:
+            update_turns = RECOMMENDED_LONG_MEMORY_UPDATE_TURNS
+
+        max_chars = options.get(CONF_LONG_MEMORY_MAX_CHARS, RECOMMENDED_LONG_MEMORY_MAX_CHARS)
+        if not isinstance(max_chars, int) or max_chars <= 0:
+            max_chars = RECOMMENDED_LONG_MEMORY_MAX_CHARS
+
+        store = get_memory_store(self.hass)
+        memory = await store.async_increment_turn_count()
+
+        if memory.turn_count % update_turns != 0:
+            return
+
+        source_text = self._build_recent_memory_snippet(chat_log)
+        if not source_text:
+            return
+
+        new_summary = await self._async_generate_memory_summary(source_text, max_chars)
+        if not new_summary:
+            return
+
+        merged_summary = await self._async_merge_memory_summary(
+            memory.global_summary,
+            new_summary,
+            max_chars,
+        )
+
+        await store.async_set_conversation_summary(new_summary)
+        await store.async_set_global_summary(merged_summary)
+        
     async def _async_handle_chat_log(
         self,
         chat_log: conversation.ChatLog,
@@ -335,6 +588,11 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                         self.entity_id, self._transform_stream(response)
                     )
                 ]
+                # Update long-term memory only after a successful full response
+                try:
+                    await self._async_update_long_memory(chat_log)
+                except Exception as err:
+                    _LOGGER.warning("Failed to update long-term memory: %s", err)
 
         except aiohttp.ClientError as err:
             _LOGGER.error("Network error calling AI Hub API: %s", err)
@@ -350,17 +608,30 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         options = self.subentry.data
         max_history = options.get(CONF_MAX_HISTORY_MESSAGES, RECOMMENDED_MAX_HISTORY_MESSAGES)
 
-        messages = []
-
         if not chat_log.content:
             return []
 
-        # For debugging: Check if we have attachments and simplify format
         last_content = chat_log.content[-1]
+        messages: list[dict[str, Any]] = []
+        system_messages: list[dict[str, Any]] = []
+
+        # Collect original system messages first
+        for content in chat_log.content:
+            if content.role == "system":
+                system_messages.append({
+                    "role": "system",
+                    "content": _ensure_string(content.content),
+                })
+
+        # Inject long-term memory as an extra system message
+        long_memory_message = await self._async_get_long_memory_message()
+        if long_memory_message:
+            system_messages.append(long_memory_message)
+
+        # Attachment mode: keep system + memory + current message
         if last_content.role == "user" and last_content.attachments:
-            _LOGGER.debug("Simplifying to single message format with attachments (like working service)")
-            # Only send the last user message with attachments, like the working service
-            return [await self._convert_user_message(last_content)]
+            _LOGGER.debug("Using attachment mode with system and long-term memory")
+            return system_messages + [await self._convert_user_message(last_content)]
 
         # Track tool_call IDs for matching with tool results
         # Maps: original_id -> generated_id (if we had to generate one)
@@ -373,10 +644,6 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         # History is content[1:-1] (excluding first system and last user input)
         # Last message is current user input (index -1)
 
-        # Add system messages
-        for content in chat_log.content:
-            if content.role == "system":
-                messages.append({"role": "system", "content": _ensure_string(content.content)})
 
         # Process history messages (excluding system and last user input)
         history_content = chat_log.content[1:-1] if len(chat_log.content) > 1 else []
@@ -411,6 +678,9 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                             break
                 history_messages = history_messages[start_index:]
 
+        # Add system + long-term memory messages first
+        messages.extend(system_messages)
+        
         # Add history to messages
         messages.extend(history_messages)
 

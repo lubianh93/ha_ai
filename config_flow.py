@@ -51,6 +51,15 @@ from .const import (
     CONF_RECOMMENDED,
     CONF_STT_MODEL,
 
+    CONF_LONG_MEMORY_ENABLED,
+    CONF_LONG_MEMORY_UPDATE_TURNS,
+    CONF_LONG_MEMORY_MAX_CHARS,
+    CONF_LONG_MEMORY_PINNED,
+    RECOMMENDED_LONG_MEMORY_ENABLED,
+    RECOMMENDED_LONG_MEMORY_UPDATE_TURNS,
+    RECOMMENDED_LONG_MEMORY_MAX_CHARS,
+    RECOMMENDED_LONG_MEMORY_PINNED,
+    
     CONF_TEMPERATURE,
     CONF_TOP_K,
     CONF_TTS_LANG,
@@ -392,6 +401,29 @@ async def ai_hub_config_option_schema(
                 default=options.get(CONF_MAX_HISTORY_MESSAGES, RECOMMENDED_MAX_HISTORY_MESSAGES),
                 description={"suggested_value": options.get(CONF_MAX_HISTORY_MESSAGES)},
             ): int,
+            vol.Optional(
+                CONF_LONG_MEMORY_ENABLED,
+                default=options.get(CONF_LONG_MEMORY_ENABLED, RECOMMENDED_LONG_MEMORY_ENABLED),
+                description={"suggested_value": options.get(CONF_LONG_MEMORY_ENABLED)},
+            ): bool,
+
+            vol.Optional(
+                CONF_LONG_MEMORY_UPDATE_TURNS,
+                default=options.get(CONF_LONG_MEMORY_UPDATE_TURNS, RECOMMENDED_LONG_MEMORY_UPDATE_TURNS),
+                description={"suggested_value": options.get(CONF_LONG_MEMORY_UPDATE_TURNS)},
+            ): int,
+
+            vol.Optional(
+                CONF_LONG_MEMORY_MAX_CHARS,
+                default=options.get(CONF_LONG_MEMORY_MAX_CHARS, RECOMMENDED_LONG_MEMORY_MAX_CHARS),
+                description={"suggested_value": options.get(CONF_LONG_MEMORY_MAX_CHARS)},
+            ): int,
+
+            vol.Optional(
+                CONF_LONG_MEMORY_PINNED,
+                default=options.get(CONF_LONG_MEMORY_PINNED, RECOMMENDED_LONG_MEMORY_PINNED),
+                description={"suggested_value": options.get(CONF_LONG_MEMORY_PINNED)},
+            ): TemplateSelector(),
         })
 
     elif subentry_type == "ai_task_data":

@@ -50,7 +50,11 @@
             "temperature": "温度",
             "top_k": "Top K",
             "max_tokens": "最大令牌数",
-            "max_history_messages": "历史消息数"
+            "max_history_messages": "历史消息数",
+            "long_memory_enabled": "长期记忆",
+            "long_memory_update_turns": "记忆更新轮数",
+            "long_memory_max_chars": "记忆最大字符数",
+            "long_memory_pinned": "固定记忆"
           },
           "data_description": {
             "recommended": "使用推荐配置",
@@ -60,7 +64,11 @@
             "custom_api_key": "自定义API密钥（留空使用主密钥）",
             "temperature": "控制创造性（0-2）",
             "max_tokens": "最大响应长度",
-            "max_history_messages": "保留的历史消息数量"
+            "max_history_messages": "保留的历史消息数量",
+            "long_memory_enabled": "启用长期摘要记忆",
+            "long_memory_update_turns": "每 N 轮对话更新一次长期记忆",
+            "long_memory_max_chars": "长期记忆摘要的最大长度",
+            "long_memory_pinned": "始终需要记住的固定事实或偏好"
           }
         }
       }
