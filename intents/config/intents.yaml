@@ -1,0 +1,350 @@
+# 意图定义
+intents:
+  # ------------------------------------------------
+  # A. 媒体播放控制意图
+  # ------------------------------------------------
+  MassPlayMediaAssist:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] [<aux_words>]<area><media_action>(歌手|艺术家){artist}的(歌|音乐)"
+          - "[<let>] [<aux_words>]<area><media_action><album>{album}"
+          - "[<let>] [<aux_words>]<area><media_action><track>{track}"
+          - "[<let>] [<aux_words>]<area><media_action><playlist>{playlist}"
+          - "[<let>] [<aux_words>]<area><media_action><radio_station>{radio}"
+          - "[<let>] [<aux_words>]{name}<media_action>(歌手|艺术家){artist}的(歌|音乐)"
+          - "[<let>] [<aux_words>]{name}<media_action><album>{album}"
+          - "[<let>] [<aux_words>]{name}<media_action><track>{track}"
+          - "[<let>] [<aux_words>]{name}<media_action><playlist>{playlist}"
+          - "[<let>] [<aux_words>]{name}<media_action><radio_station>{radio}"
+          - "[<let>] <media_action>(歌手|艺术家){artist}的(歌|音乐)"
+          - "[<let>] <media_action><album>{album}"
+          - "[<let>] <media_action><track>{track}"
+          - "[<let>] <media_action><playlist>{playlist}"
+          - "[<let>] <media_action><radio_station>{radio}"
+        expansion_rules:
+          media_action: "(播放|收听|唱|放)"
+          track: "(歌曲|音乐)"
+          album: "(专辑|唱片|合集|单曲)"
+          playlist: "(播放列表)"
+          radio_station: "(广播电台|电台|频道)"
+        requires_context:
+          domain: "media_player"
+
+  # ------------------------------------------------
+  # B. 摄像头分析意图
+  # ------------------------------------------------
+  CameraAnalyzeIntent:
+    bypass_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] [帮我]<function_verbs>{camera_name}[的]{question}"
+          - "[<let>] <function_verbs><aux_words>{camera_name}[的]{question}"
+          - "[<let>] {camera_name}[现在|那里|目前]的{question}"
+        slots:
+          camera_name:
+            type: text
+          question:
+            type: text
+    speech:
+      text: "正在分析摄像头画面，请稍等..."
+
+  # ------------------------------------------------
+  # C. 窗帘控制意图
+  # ------------------------------------------------
+  AIHUB_CoverGetStateIntent:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <function_verbs>[<area>](窗帘|百叶|遮阳帘){name}[的]状态"
+          - "[<let>] [<area>](窗帘|百叶|遮阳帘){name}[是|不是]<action_verbs>[吗|不]"
+        response: one_yesno
+        requires_context:
+          domain: cover
+        slots:
+          domain: cover
+      - sentences:
+          - "[<let>] [{area}][有|有没有]{cover_classes:device_class}[是|不是]{cover_states:state}[吗|不]"
+        response: any
+        slots:
+          domain: cover
+      - sentences:
+          - "[<let>][<all>]{area_names}{cover_names}[都]是{cover_states:state}[吗|不]"
+        response: all
+        slots:
+          domain: cover
+      - sentences:
+          - "[<let>][<which>][<area>]{cover_names}[是]{cover_states:state}"
+        response: which
+        slots:
+          domain: cover
+      - sentences:
+          - "[<let>][<how_many_is>][<area>]{cover_names}[是]{cover_states:state}"
+        response: how_many
+        slots:
+          domain: cover
+
+  AIHUB_CoverSetPositionIntent:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <action_verbs>[<area>](窗帘|百叶|遮阳帘){name}[<aux_words>]{position}"
+          - "[<let>][<area>](窗帘|百叶|遮阳帘){name}[完全打开|全开|开到最大|打开到100%|开到头]"
+          - "[<let>][<area>](窗帘|百叶|遮阳帘){name}[完全关闭|全关|关到最小|关闭到0%|关到底]"
+          - "[<let>][<area>](窗帘|百叶|遮阳帘){name}<action_verbs>"
+        requires_context:
+          domain: cover
+        slots:
+          domain: cover
+
+  # ------------------------------------------------
+  # D. 计时器意图 - 完全交给 HA 内置处理
+  # 注意：不要在这里定义 Timer 意图，让 HA 使用内置的 Timer 处理器
+  # HA 内置支持: HassStartTimer, HassCancelTimer, HassPauseTimer, 
+  #              HassUnpauseTimer, HassTimerStatus, HassCancelAllTimers
+  # ------------------------------------------------
+
+  # ------------------------------------------------
+  # E. 通知意图
+  # ------------------------------------------------
+  HassNotifyIntent:
+    action: [notify]
+    speech:
+      text: 发送通知
+    slots:
+      message: { type: text }
+    templates:
+      - "[<let>] <function_verbs>通知<aux_words>{message}"
+
+  # ------------------------------------------------
+  # F. 基础状态查询意图
+  # ------------------------------------------------
+  HassGetState:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <function_verbs>[<area>]{name}[的]状态"
+          - "[<let>] [<area>]{name}[现在|当前]是什么状态"
+          - "[<let>] [<area>]{name}[怎么样|如何]"
+        slots:
+          domain: all
+      - sentences:
+          - "[<let>] [<area>]{name}[的锁](是不是|有没有){lock_states:state}"
+          - "[<let>] [<area>]{name}[的锁][是|有]{lock_states:state}[吗|不]"
+        response: one_yesno
+        requires_context:
+          domain: lock
+        slots:
+          domain: lock
+
+  # ------------------------------------------------
+  # G. 气候控制意图
+  # ------------------------------------------------
+  ClimateSetTemperature:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <action_verbs>{name}[温度][<aux_words>]{temperature}度"
+          - "[<let>] <set> {area_names}[的]{climate_names}[温度][<temperature_level>度]"
+          - "[<let>] {name}[温度]{temperature}度"
+        slots:
+          name: { type: text }
+          temperature: { type: number }
+          domain: "climate"
+
+  ClimateSetMode:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <action_verbs>{name}[<aux_words>]{mode}[模式|]"
+          - "[<let>] {name}{mode}[模式|]"
+        slots:
+          name: { type: text }
+          mode:
+            type: list
+            values: [制冷, 制热, 自动, 除湿, 送风, 关闭, 停止]
+        requires_context:
+          domain: "climate"
+
+  ClimateSetFanMode:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <action_verbs>{name}[的|]风速[<aux_words>]{fan_mode}"
+        slots:
+          name: { type: text }
+          fan_mode:
+            type: list
+            values: [高档, 低档, 高速, 低速, 自动高, 自动低, 强劲, 自动]
+        requires_context:
+          domain: "climate"
+
+  ClimateSetSwingMode:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <action_verbs>{name}[的|]摆风[<aux_words>]{swing_mode}"
+        slots:
+          name: { type: text }
+          swing_mode: { type: text }
+        requires_context:
+          domain: "climate"
+
+  ClimateSetHumidity:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <action_verbs>{name}[的|]湿度[<aux_words>]{humidity}%"
+        slots:
+          name: { type: text }
+          humidity: { type: number }
+        requires_context:
+          domain: "climate"
+
+  # ------------------------------------------------
+  # H. 风扇速度控制
+  # ------------------------------------------------
+  HassFanSetSpeed:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <set> {area_names}[的] {fan_names}[风速][<percentage>]"
+          - "[<let>] <set> {name}[风速][<percentage>]"
+          - "[<let>] {area_names}[的] {fan_names}[风速]调[为][<percentage>]"
+        requires_context:
+          domain: "fan"
+
+  # ------------------------------------------------
+  # I. 场景控制
+  # ------------------------------------------------
+  HassActivateScene:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] [激活]{name}[场景]"
+          - "[<let>] [执行]{name}[场景]"
+          - "[<let>] [启动]{name}[场景]"
+        requires_context:
+          domain: "scene"
+
+  # ------------------------------------------------
+  # J. 取消所有定时器 - 交给 HA 内置处理
+  # ------------------------------------------------
+
+  # ------------------------------------------------
+  # K. 媒体增强控制
+  # ------------------------------------------------
+  HassMediaMute:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] [静音]{name}"
+          - "[<let>] [关闭][声音]{name}"
+          - "[<let>] {name}[静音]"
+        requires_context:
+          domain: "media_player"
+
+  HassMediaUnmute:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] [取消静音]{name}"
+          - "[<let>] [打开][声音]{name}"
+          - "[<let>] {name}[取消静音]"
+        requires_context:
+          domain: "media_player"
+
+  HassMediaSetVolumeRelative:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] [音量][<volume_level>]"
+          - "[<let>] [把][音量][调高][<volume_level>]"
+          - "[<let>] [把][音量][调低][<volume_level>]"
+          - "[<let>] [增加][音量][<volume_level>]"
+          - "[<let>] [减少][音量][<volume_level>]"
+        requires_context:
+          domain: "media_player"
+
+  # ------------------------------------------------
+  # L. 照明增强控制
+  # ------------------------------------------------
+  HassLightSetTemperature:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <set> {area_names}[的] {light_names}[色温][<percentage>]"
+          - "[<let>] <set> {name}[色温][<percentage>]"
+          - "[<let>] {area_names}[的] {light_names}[调到][<percentage>][色温]"
+        requires_context:
+          domain: "light"
+
+  # ------------------------------------------------
+  # M. 购物清单
+  # ------------------------------------------------
+  HassShoppingListAddItem:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] [添加]{item}[到][购物清单]"
+          - "[<let>] [买]{item}"
+          - "[<let>] {item}[加入][购物清单]"
+
+  HassShoppingListCompleteItem:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] [完成]{item}"
+          - "[<let>] {item}[已买]"
+          - "[<let>] [标记]{item}[完成]"
+
+  # ------------------------------------------------
+  # N. 清洁设备控制
+  # ------------------------------------------------
+  HassVacuumSetMode:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <set> {name}[清扫模式]"
+          - "[<let>] {name}[切换到][清扫模式]"
+          - "[<let>] <set> {name}[为][清扫模式]"
+        requires_context:
+          domain: "vacuum"
+
+  # ------------------------------------------------
+  # O. 阀门控制
+  # ------------------------------------------------
+  HassValveOpen:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] [打开]{name}"
+          - "[<let>] {name}[打开]"
+        requires_context:
+          domain: "valve"
+
+  HassValveClose:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] [关闭]{name}"
+          - "[<let>] {name}[关闭]"
+        requires_context:
+          domain: "valve"
+
+  # ------------------------------------------------
+  # P. 自定义意图
+  # ------------------------------------------------
+  HassNevermind:
+    bypass_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] [算了|取消|不用了|没事了]"
+
+  AIAssistantIntent:
+    bypass_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] ai助手[帮我|请]{message}"
+          - "[<let>] [你好|感谢]"
+          - "[<let>] 聊天吧"

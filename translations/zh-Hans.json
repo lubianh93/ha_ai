@@ -1,0 +1,236 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "连接到HA AI",
+        "description": "请输入你需要对应服务的API-KEY，如果需要全服务，请输入所有的API-KEY，如果有任何问题，可以点击问号图标查看帮助文档。",
+        "data": {
+          "api_key": "SiliconFlow API密钥"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "无法连接到HA AI服务",
+      "invalid_auth": "API密钥无效",
+      "unknown": "未知错误"
+    },
+    "abort": {
+      "already_configured": "此API密钥已经配置"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "配置选项",
+        "description": "请在集成详情页面找到对应的子项目（对话助手或AI任务），点击每个子项目右侧的配置按钮修改设置。点击集成页面上的HA AI进入详情页面，您会看到已配置的子项目列表，每个子项目都可以单独配置。"
+      }
+    },
+    "abort": {
+      "configure_via_subentries": "请通过子项目配置对话和AI任务。在设备页面找到对应的子项目。"
+    }
+  },
+  "config_subentries": {
+    "conversation": {
+      "initiate_flow": {
+        "user": "添加对话助手",
+        "reconfigure": "重新配置对话助手"
+      },
+      "entry_type": "HA AI 对话助手",
+      "step": {
+        "init": {
+          "title": "配置对话助手",
+          "description": "自定义对话助手的行为和参数。开启推荐模式将使用最佳配置，或关闭以自定义所有参数。提交后将切换配置信息。",
+          "data": {
+            "name": "名称",
+            "recommended": "推荐模式",
+            "prompt": "提示词模板",
+            "chat_model": "聊天模型",
+            "chat_url": "对话API地址",
+            "custom_api_key": "自定义API密钥",
+            "temperature": "温度",
+            "top_p": "Top P",
+            "top_k": "Top K",
+            "max_tokens": "最大令牌数",
+            "max_history_messages": "历史消息数"
+          },
+          "data_description": {
+            "recommended": "使用推荐配置",
+            "prompt": "自定义系统提示词",
+            "chat_model": "选择或输入自定义模型名称",
+            "chat_url": "完整的对话API地址（如API不通，请在地址后添加 /chat/completions）",
+            "custom_api_key": "自定义API密钥（留空使用主密钥）",
+            "temperature": "控制创造性（0-2）",
+            "top_p": "采样参数（0-1）",
+            "max_tokens": "最大响应长度",
+            "max_history_messages": "保留的历史消息数量"
+          }
+        }
+      }
+    },
+    "ai_task_data": {
+      "initiate_flow": {
+        "user": "添加AI任务",
+        "reconfigure": "重新配置AI任务"
+      },
+      "entry_type": "HA AI AI任务",
+      "step": {
+        "init": {
+          "title": "配置AI任务",
+          "description": "自定义AI任务的行为和参数。聊天模型自动跟随对话助手的设置。开启推荐模式使用最佳设置，或关闭以自定义参数。",
+          "data": {
+            "name": "名称",
+            "recommended": "推荐模式",
+            "image_model": "图像模型",
+            "image_url": "图像生成API地址",
+            "custom_api_key": "自定义API密钥",
+            "temperature": "温度",
+            "top_p": "Top P",
+            "max_tokens": "最大令牌数"
+          },
+          "data_description": {
+            "recommended": "使用推荐设置",
+            "image_model": "选择或输入自定义图像生成模型",
+            "image_url": "完整的图像生成API地址（默认SiliconFlow）",
+            "custom_api_key": "自定义API密钥（留空使用主密钥）",
+            "temperature": "控制创造性（0-2）",
+            "top_p": "采样参数（0-1）",
+            "max_tokens": "最大响应长度"
+          }
+        }
+      }
+    },
+    "tts": {
+      "initiate_flow": {
+        "user": "添加Edge TTS语音",
+        "reconfigure": "重新配置Edge TTS语音"
+      },
+      "entry_type": "HA AI Edge TTS语音",
+      "step": {
+        "init": {
+          "title": "配置Edge TTS语音",
+          "description": "自定义Edge TTS文本转语音参数。Edge TTS是微软提供的免费TTS服务，支持多种语音和语言。",
+          "data": {
+            "name": "名称",
+            "recommended": "推荐模式",
+            "voice": "语音",
+            "lang": "语言"
+          },
+          "data_description": {
+            "recommended": "使用推荐设置",
+            "voice": "选择Edge TTS语音，如晓晓、云熙等",
+            "lang": "选择语音语言，如zh-CN代表中文"
+          }
+        }
+      }
+    },
+    "stt": {
+      "initiate_flow": {
+        "user": "添加硅基流动ASR",
+        "reconfigure": "重新配置硅基流动ASR"
+      },
+      "entry_type": "HA AI 硅基流动ASR",
+      "step": {
+        "init": {
+          "title": "配置硅基流动ASR",
+          "description": "自定义硅基流动ASR语音转文本参数。硅基流动提供高质量的ASR服务，支持多种模型和语言。",
+          "data": {
+            "name": "名称",
+            "recommended": "推荐模式",
+            "model": "ASR模型"
+          },
+          "data_description": {
+            "recommended": "使用推荐设置",
+            "model": "选择ASR模型：FunAudioLLM/SenseVoiceSmall（推荐）或TeleAI/TeleSpeechASR"
+          }
+        }
+      }
+    }
+  },
+  "services": {
+    "generate_image": {
+      "name": "生成图像",
+      "description": "使用HA AI CogView模型生成图像",
+      "fields": {
+        "prompt": {
+          "name": "提示词",
+          "description": "描述要生成的图像内容"
+        },
+        "size": {
+          "name": "图像尺寸",
+          "description": "生成图像的尺寸"
+        },
+        "model": {
+          "name": "模型",
+          "description": "使用的图像生成模型"
+        }
+      }
+    },
+    "analyze_image": {
+      "name": "分析图像",
+      "description": "使用HA AI分析图像内容",
+      "fields": {
+        "image_file": {
+          "name": "图像文件",
+          "description": "要分析的图像文件路径"
+        },
+        "image_entity": {
+          "name": "图像实体",
+          "description": "要分析摄像头实体ID"
+        },
+        "message": {
+          "name": "分析指令",
+          "description": "告诉AI如何分析这张图像"
+        },
+        "model": {
+          "name": "模型",
+          "description": "使用的图像分析模型"
+        },
+        "temperature": {
+          "name": "温度",
+          "description": "控制输出随机性"
+        },
+        "max_tokens": {
+          "name": "最大令牌数",
+          "description": "限制最大响应长度"
+        },
+        "stream": {
+          "name": "流式输出",
+          "description": "启用流式输出"
+        }
+      }
+    },
+    "tts_say": {
+      "name": "Edge TTS语音合成",
+      "description": "使用Edge TTS将文本转换为语音",
+      "fields": {
+        "text": {
+          "name": "文本",
+          "description": "要转换为语音的文本内容"
+        },
+        "voice": {
+          "name": "语音",
+          "description": "选择Edge TTS语音，如zh-CN-XiaoxiaoNeural"
+        },
+        "media_player_entity": {
+          "name": "媒体播放器",
+          "description": "用于播放语音的媒体播放器实体"
+        }
+      }
+    },
+    "stt_transcribe": {
+      "name": "硅基流动ASR转录",
+      "description": "使用硅基流动ASR将语音转换为文本",
+      "fields": {
+        "audio_file": {
+          "name": "音频文件",
+          "description": "要转录的音频文件路径（支持mp3、wav、flac格式）"
+        },
+        "model": {
+          "name": "ASR模型",
+          "description": "使用的语音识别模型：FunAudioLLM/SenseVoiceSmall（推荐）或TeleAI/TeleSpeechASR"
+        }
+      }
+    }    
+  },
+  "title": "HA AI"
+}

@@ -1,0 +1,337 @@
+# 本地意图控制配置
+local_intents:
+  GlobalDeviceControl:
+    # 全局控制关键词
+    global_keywords:
+      - "所有"
+      - "全部"
+      - "全屋"
+      - "全家"
+      - "整屋"
+      - "到处"
+      - "处处"
+      - "整个"
+      - "所有区域"
+      - "全部区域"
+      - "每个区域"
+      - "每个"
+      - "各个"
+      - "所有设备"
+      - "全部设备"
+      - "全屋设备"
+      - "全家设备"
+      - "整屋设备"
+      - "所有屋"
+      - "全部屋"
+      - "全屋灯光"
+
+    # 设备类型关键词映射 - 引用lists配置
+    device_type_keywords: "{{lists}}"
+
+    # 开关关键词
+    on_keywords:
+      - "打开"
+      - "开启"
+      - "开"
+      - "启动"
+      - "点亮"
+      - "放亮"
+      - "亮起"
+      - "运行"
+      - "播放"
+
+    off_keywords:
+      - "关闭"
+      - "关上"
+      - "关"
+      - "停止"
+      - "熄灭"
+      - "灭灯"
+      - "关掉"
+      - "暂停"
+      - "退出"
+
+    # 参数控制关键词
+    param_keywords:
+      - "设置"
+      - "调节"
+      - "调到"
+      - "设为"
+      - "调成"
+      - "调整"
+      - "设"
+      - "调"
+      - "改为"
+      - "变成"
+      - "变为"
+      - "到"
+      - "为"
+
+    # 温度控制关键词
+    temperature_keywords:
+      - "温度"
+      - "气温"
+      - "室温"
+      - "度"
+      - "摄氏度"
+      - "太热"
+      - "太冷"
+      - "热"
+      - "冷"
+      - "凉"
+      - "暖和"
+      - "舒适"
+
+    # 亮度控制关键词
+    brightness_keywords:
+      - "亮度"
+      - "明亮度"
+      - "光亮度"
+      - "明暗"
+
+    # 亮度抱怨关键词
+    brightness_complaint:
+      hot_keywords: ["太亮", "太刺眼", "太亮了", "太刺眼了", "太白", "太白了"]
+      cold_keywords: ["太暗", "太黑", "太暗了", "太黑了", "太暗淡", "太暗淡了"]
+      default_brightness:
+        hot_recommendation: 30
+        cold_recommendation: 70
+
+    # 颜色控制关键词
+    color_keywords:
+      - "颜色"
+      - "颜色色"
+      - "色彩"
+      - "变为"
+      - "变成"
+      - "调为"
+      - "设置为"
+      - "改成"
+
+    # 音量控制关键词
+    volume_keywords:
+      - "音量"
+      - "声音"
+      - "声量"
+      - "音量大小"
+
+    # 窗帘位置关键词
+    cover_position_keywords:
+      - "位置"
+      - "开度"
+      - "高度"
+      - "百分比"
+      - "开到"
+      - "关到"
+      - "调到"
+      - "降到"
+      - "升到"
+
+    # 风扇速度关键词
+    fan_speed_keywords:
+      - "风速"
+      - "速度"
+      - "转速"
+      - "档位"
+
+    # 颜色值映射
+    color_values:
+      红色: "red"
+      绿色: "green"
+      蓝色: "blue"
+      黄色: "yellow"
+      白色: "white"
+      暖白: "warm_white"
+      冷白: "cool_white"
+      橙色: "orange"
+      紫色: "purple"
+      粉色: "pink"
+      棕色: "brown"
+      灰色: "gray"
+      青色: "cyan"
+      金色: "gold"
+      银色: "silver"
+      彩色: "rainbow"
+
+    # 颜色RGB值映射
+    color_rgb_values:
+      red: [255, 0, 0]
+      green: [0, 255, 0]
+      blue: [0, 0, 255]
+      yellow: [255, 255, 0]
+      white: [255, 255, 255]
+      warm_white: [255, 220, 180]
+      cool_white: [255, 248, 220]
+      orange: [255, 165, 0]
+      purple: [128, 0, 128]
+      pink: [255, 192, 203]
+      brown: [165, 42, 42]
+      gray: [128, 128, 128]
+      cyan: [0, 255, 255]
+      gold: [255, 215, 0]
+      silver: [192, 192, 192]
+      rainbow: [255, 0, 255]
+
+    # 设备类型到服务名称的映射 (统一配置，去除重复)
+    domain_services:
+      light:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        set_brightness: "turn_on"
+        set_color: "turn_on"
+        set_temperature: "turn_on"
+        toggle: "toggle"
+      climate:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        set_temperature: "set_temperature"
+        set_hvac_mode: "set_hvac_mode"
+        set_preset_mode: "set_preset_mode"
+      media_player:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        set_volume: "volume_set"
+        volume_up: "volume_up"
+        volume_down: "volume_down"
+        mute: "volume_mute"
+      cover:
+        turn_on: "open_cover"
+        turn_off: "close_cover"
+        set_position: "set_cover_position"
+        stop: "stop_cover"
+        toggle: "toggle_cover"
+      fan:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        set_speed: "set_speed"
+        set_percentage: "set_percentage"
+        set_direction: "set_direction"
+        oscillate: "oscillate"
+      switch:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        toggle: "toggle"
+      vacuum:
+        turn_on: "start"
+        turn_off: "return_to_base"
+        pause: "pause"
+        stop: "stop"
+        clean_spot: "clean_spot"
+        locate: "locate"
+      lock:
+        turn_on: "unlock"
+        turn_off: "lock"
+        open: "open"
+      camera:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        snapshot: "snapshot"
+        record: "record"
+      scene:
+        turn_on: "turn_on"
+      script:
+        turn_on: "turn_on"
+      automation:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        toggle: "toggle"
+        trigger: "trigger"
+      valve:
+        turn_on: "open_valve"
+        turn_off: "close_valve"
+        set_position: "set_valve_position"
+      input_boolean:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        toggle: "toggle"
+
+    # 控制的设备域
+    control_domains:
+      - "light"
+      - "switch"
+      - "fan"
+      - "media_player"
+      - "climate"
+      - "cover"
+      - "vacuum"
+      - "lock"
+      - "camera"
+      - "scene"
+      - "script"
+      - "automation"
+      - "valve"
+      - "input_boolean"
+
+    # 响应消息模板
+    responses:
+      success_on: "已打开{count}个设备{fail_msg}"
+      success_off: "已关闭{count}个设备{fail_msg}"
+      success_temperature: "已将{area}温度设置为{temperature}度"
+      success_brightness: "已将{area}{device}亮度调至{brightness}%"
+      success_color: "已将{area}{device}颜色设置为{color}"
+      success_volume: "已将{area}{device}音量调至{volume}%"
+      success_cover_position: "已将{area}{device}位置调至{position}%"
+      success_fan_speed: "已将{area}{device}风速调至{speed}%"
+      success_scene: "已激活场景：{scene_name}"
+      success_script: "已执行脚本：{script_name}"
+      no_devices: "没有找到可控制的设备"
+      error: "设备控制失败：{error}"
+
+    # 默认区域名称
+    default_area_name: "全屋"
+
+    # 默认设备类型名称
+    default_device_names:
+      light: "灯光"
+      media_player: "媒体设备"
+      cover: "窗帘"
+      fan: "风扇"
+      climate: "空调"
+      switch: "开关"
+      vacuum: "清洁设备"
+      valve: "水阀"
+      lock: "门锁"
+      camera: "摄像头"
+      scene: "场景"
+      script: "脚本"
+
+    # 温度处理配置
+    temperature:
+      hot_keywords: ["太热", "热", "热死了"]
+      cold_keywords: ["太冷", "冷", "冷死了"]
+      default_temperatures:
+        hot_recommendation: 24
+        cold_recommendation: 22
+      min_temperature: 16
+      max_temperature: 30
+
+    # 空调模式配置
+    hvac_modes:
+      cooling:
+        name: "制冷"
+        service_parameter: "cool"
+        keywords: ["制冷", "冷气", "降温"]
+      heating:
+        name: "制热"
+        service_parameter: "heat"
+        keywords: ["制热", "暖气", "升温"]
+      dry:
+        name: "除湿"
+        service_parameter: "dry"
+        keywords: ["除湿", "抽湿"]
+      fan_only:
+        name: "送风"
+        service_parameter: "fan_only"
+        keywords: ["送风", "通风", "循环"]
+
+    # 失败消息格式化配置
+    failure_message:
+      few_devices: "，但以下{error_count}个设备失败：{failed_list}"
+      many_devices: "，但{error_count}个设备失败，包括：{failed_list}等"
+      max_devices_list: 3
+
+    # 设备去重配置
+    device_deduplication:
+      enabled: true
+      log_duplicates: true
+      fail_on_duplicates: false

@@ -1,0 +1,71 @@
+# 基础配置 - 响应、设备操作、默认值
+language: "zh-CN"
+
+# ========== 响应配置 ==========
+responses:
+  cancel:
+    message: "好的，已取消。"
+  default:
+    success_message: "操作已完成"
+    error_message: "操作失败，请稍后再试"
+  error:
+    default_error: "操作失败"
+  automation:
+    creation_success: "我已经为您创建了自动化: {automation_name}"
+    creation_error: "创建自动化失败: {error}"
+  device_operation:
+    verification_success: "操作已成功执行"
+    verification_timeout: "命令已发送，设备可能需要几秒钟响应"
+    partial_success: "部分设备操作成功，有些设备可能需要更长时间响应"
+
+# ========== 设备操作配置 ==========
+device_operations:
+  # 验证重试配置 (统一配置，去除重复)
+  verification:
+    total_timeout: 3
+    max_retries: 3
+    wait_times: [0.5, 0.8, 1.1]
+
+  # 默认配置
+  defaults:
+    global_keywords: ["所有", "全部", "一切"]
+    local_features: ["所有设备", "全部设备", "所有灯", "全部灯"]
+    automation_keywords: ["创建自动化", "创建一个自动化", "建立自动化", "设置自动化"]
+    automation_prefixes: ["创建自动化", "创建一个自动化", "建立自动化", "设置自动化"]
+
+    # 默认错误消息
+    error_messages:
+      llm_config_error: "LLM配置出现问题，请检查集成设置。"
+      automation_default_name: "新自动化"
+      automation_trigger_unknown: "unknown"
+
+    # 超时配置
+    timeouts:
+      device_verification: 3
+      config_cache_ttl: 30
+
+  # 设备控制操作类型
+  control_operations:
+    light: ["light.turn_on", "light.turn_off", "light.toggle", "light.set_brightness", "light.set_color"]
+    switch: ["switch.turn_on", "switch.turn_off", "switch.toggle"]
+    climate: ["climate.turn_on", "climate.turn_off", "climate.set_temperature", "climate.set_hvac_mode", "climate.set_fan_mode"]
+    fan: ["fan.turn_on", "fan.turn_off", "fan.set_speed", "fan.set_direction"]
+    cover: ["cover.open_cover", "cover.close_cover", "cover.set_cover_position", "cover.stop_cover", "cover.toggle_cover"]
+    media_player: ["media_player.media_play", "media_player.media_pause", "media_player.media_stop", "media_player.volume_set", "media_player.volume_mute", "media_player.toggle_mute", "media_player.media_play_pause"]
+    lock: ["lock.unlock", "lock.lock"]
+    vacuum: ["vacuum.start", "vacuum.pause", "vacuum.stop", "vacuum.return_to_base"]
+    script: ["script.turn_on", "script.turn_off", "script.toggle"]
+    scene: ["scene.turn_on"]
+    valve: ["valve.open", "valve.close", "valve.set_position"]
+
+# ========== 自动化关键词 ==========
+automation_keywords:
+  - "创建自动化"
+  - "设置自动化"
+  - "自动执行"
+  - "定时执行"
+  - "当...时候"
+  - "如果...就"
+  - "帮我创建"
+  - "智能控制"
+  - "设置定时"

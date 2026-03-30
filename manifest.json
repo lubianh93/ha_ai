@@ -1,0 +1,12 @@
+{
+  "domain": "ha_ai",
+  "name": "HA AI",
+  "after_dependencies": ["assist_pipeline", "intent", "recorder"],
+  "codeowners": ["@lubianh93"],
+  "config_flow": true,
+  "documentation": "https://github.com/lubianh93/ha_ai",
+  "integration_type": "service",
+  "issue_tracker": "https://github.com/lubianh93/ha_ai/issues",
+  "requirements": ["edge-tts==7.2.7", "aiofiles", "aiohttp"],
+  "version": "0.1.0"
+}
