@@ -48,19 +48,17 @@
             "chat_url": "Chat API URL",
             "custom_api_key": "Custom API Key",
             "temperature": "Temperature",
-            "top_p": "Top P",
             "top_k": "Top K",
             "max_tokens": "Max Tokens",
             "max_history_messages": "Max History Messages"
           },
-          "data_description": {
+          "data_description":  {
             "recommended": "Use recommended settings",
             "prompt": "Custom system prompt",
             "chat_model": "Select or enter custom model name",
             "chat_url": "Complete chat API URL (if API fails, try appending /chat/completions)",
             "custom_api_key": "Custom API key (leave empty to use main key)",
             "temperature": "Control creativity (0-2)",
-            "top_p": "Sampling parameter (0-1)",
             "max_tokens": "Maximum response length",
             "max_history_messages": "Number of history messages to keep"
           }
@@ -84,16 +82,14 @@
             "image_url": "Image Generation API URL",
             "custom_api_key": "Custom API Key",
             "temperature": "Temperature",
-            "top_p": "Top P",
             "max_tokens": "Max Tokens"
           },
-          "data_description": {
+          "data_description":  {
             "recommended": "Use recommended settings",
             "image_model": "Select or enter custom image generation model",
             "image_url": "Complete image generation API URL (default: SiliconFlow)",
             "custom_api_key": "Custom API key (leave empty to use main key)",
             "temperature": "Control creativity (0-2)",
-            "top_p": "Sampling parameter (0-1)",
             "max_tokens": "Maximum response length"
           }
         }
@@ -221,7 +217,7 @@
       "name": "Silicon Flow ASR Transcription",
       "description": "Convert speech to text using Silicon Flow ASR",
       "fields": {
-        "audio_file": {
+        "file": {
           "name": "Audio File",
           "description": "Path to audio file to transcribe (supports mp3, wav, flac formats)"
         },
