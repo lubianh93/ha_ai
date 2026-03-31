@@ -282,26 +282,18 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
 
         for content in chat_log.content:
             role = getattr(content, "role", "")
-            if role not in ("user", "assistant", "tool_result"):
+            if role not in ("user", "assistant"):
                 continue
 
-            text = _ensure_string(getattr(content, "content", ""))
-            text = text.strip()
+            text = _ensure_string(getattr(content, "content", "")).strip()
             if not text:
                 continue
 
-            if role == "user":
-                prefix = "User"
-            elif role == "assistant":
-                prefix = "Assistant"
-            else:
-                prefix = "Tool"
-
+            prefix = "User" if role == "user" else "Assistant"
             items.append(f"{prefix}: {text}")
 
         if not items:
             return ""
-
         return "\n".join(items[-limit:])
     
     async def _async_generate_memory_summary(self, source_text: str, max_chars: int) -> str:
@@ -319,15 +311,22 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
             model_name = self.default_model
 
         prompt = (
-            "Summarize the conversation below for long-term assistant memory.\n"
-            "Keep only information that is likely useful in future conversations, such as:\n"
+            "Extract durable long-term memory from the dialogue below.\n"
+            "Only keep information that is likely useful in future conversations, such as:\n"
             "- stable user preferences\n"
             "- recurring home automation habits\n"
-            "- device naming conventions\n"
-            "- ongoing tasks or important persistent context\n"
-            "Do not keep temporary chit-chat.\n"
-            f"Return plain text only, under {max_chars} characters.\n"
-            "If there is nothing worth storing, return an empty string."
+            "- device naming conventions or aliases\n"
+            "- persistent projects or ongoing context\n"
+            "\n"
+            "Do NOT keep:\n"
+            "- one-time control commands\n"
+            "- temporary device states\n"
+            "- execution results\n"
+            "- troubleshooting details that are only relevant right now\n"
+            "- casual small talk\n"
+            "\n"
+            f"If there is no durable memory worth storing, return exactly: EMPTY\n"
+            f"Otherwise return plain text only, under {max_chars} characters."
         )
 
         request_params = {
@@ -390,8 +389,9 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         prompt = (
             "Merge the existing long-term memory summary with the new memory summary.\n"
             "Keep only stable, reusable information for future conversations.\n"
-            "Remove redundancy and temporary details.\n"
-            f"Return plain text only, under {max_chars} characters."
+            "Remove redundancy, temporary device states, one-time commands, and execution results.\n"
+            f"Return plain text only, under {max_chars} characters.\n"
+            "If nothing valuable remains, return exactly: EMPTY"
         )
 
         source_text = (
@@ -444,11 +444,17 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         if not enabled:
             return
 
-        update_turns = options.get(CONF_LONG_MEMORY_UPDATE_TURNS, RECOMMENDED_LONG_MEMORY_UPDATE_TURNS)
+        update_turns = options.get(
+            CONF_LONG_MEMORY_UPDATE_TURNS,
+            RECOMMENDED_LONG_MEMORY_UPDATE_TURNS,
+        )
         if not isinstance(update_turns, int) or update_turns <= 0:
             update_turns = RECOMMENDED_LONG_MEMORY_UPDATE_TURNS
 
-        max_chars = options.get(CONF_LONG_MEMORY_MAX_CHARS, RECOMMENDED_LONG_MEMORY_MAX_CHARS)
+        max_chars = options.get(
+            CONF_LONG_MEMORY_MAX_CHARS,
+            RECOMMENDED_LONG_MEMORY_MAX_CHARS,
+        )
         if not isinstance(max_chars, int) or max_chars <= 0:
             max_chars = RECOMMENDED_LONG_MEMORY_MAX_CHARS
 
@@ -466,15 +472,22 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         if not new_summary:
             return
 
+        new_summary = new_summary.strip()
+        if new_summary.upper() == "EMPTY":
+            return
+
+        await store.async_set_conversation_summary(new_summary)
+
         merged_summary = await self._async_merge_memory_summary(
             memory.global_summary,
             new_summary,
             max_chars,
         )
-
-        await store.async_set_conversation_summary(new_summary)
-        await store.async_set_global_summary(merged_summary)
-        
+        if merged_summary.strip().upper() == "EMPTY":
+            await store.async_set_global_summary("")
+            return
+        await store.async_set_global_summary(merged_summary)          
+                     
     async def _async_handle_chat_log(
         self,
         chat_log: conversation.ChatLog,
