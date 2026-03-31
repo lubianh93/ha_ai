@@ -54,7 +54,9 @@
             "long_memory_enabled": "Long-term Memory",
             "long_memory_update_turns": "Memory Update Turns",
             "long_memory_max_chars": "Memory Max Characters",
-            "long_memory_pinned": "Pinned Memory"
+            "long_memory_pinned": "Pinned Memory",
+            "long_memory_global": "Auto Global Memory",
+            "long_memory_conversation": "Auto Recent Memory"
           },
           "data_description":  {
             "recommended": "Use recommended settings",
@@ -68,7 +70,9 @@
             "long_memory_enabled": "Enable long-term summary memory",
             "long_memory_update_turns": "Update long-term memory every N conversation turns",
             "long_memory_max_chars": "Maximum length of long-term memory summary",
-            "long_memory_pinned": "Pinned facts or preferences that should always be remembered"
+            "long_memory_pinned": "Pinned facts or preferences that should always be remembered",
+            "long_memory_global": "Editable global long-term memory summary extracted automatically from past conversations",
+            "long_memory_conversation": "Editable recent memory summary extracted automatically from recent conversations"
           }
         }
       }

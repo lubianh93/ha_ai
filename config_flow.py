@@ -55,6 +55,8 @@ from .const import (
     CONF_LONG_MEMORY_UPDATE_TURNS,
     CONF_LONG_MEMORY_MAX_CHARS,
     CONF_LONG_MEMORY_PINNED,
+    CONF_LONG_MEMORY_GLOBAL,
+    CONF_LONG_MEMORY_CONVERSATION,
     RECOMMENDED_LONG_MEMORY_ENABLED,
     RECOMMENDED_LONG_MEMORY_UPDATE_TURNS,
     RECOMMENDED_LONG_MEMORY_MAX_CHARS,
@@ -90,6 +92,8 @@ from .const import (
     TTS_DEFAULT_LANG,
     TTS_DEFAULT_VOICE,
 )
+
+from .memory import get_memory_store
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -250,18 +254,39 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
                 # If reconfiguration, copy existing options to show current values
                 self.options = self._get_reconfigure_subentry().data.copy()
 
+            if self._subentry_type == "conversation":
+                store = get_memory_store(self.hass)
+                memory = await store.async_get()
+                self.options[CONF_LONG_MEMORY_GLOBAL] = memory.global_summary or ""
+                self.options[CONF_LONG_MEMORY_CONVERSATION] = memory.conversation_summary or ""
+
             self.last_rendered_recommended = self.options.get(CONF_RECOMMENDED, True)
 
         else:
             # Check if recommended mode has changed
             if user_input[CONF_RECOMMENDED] == self.last_rendered_recommended:
                 # Recommended mode unchanged, save the configuration
-
                 # Use user input directly (no complex model name processing needed)
                 processed_input = user_input.copy()
 
-                # Always enable LLM_HASS_API for conversation
+                # Conversation memory fields are stored in storage, not subentry data
                 if self._subentry_type == "conversation":
+                    store = get_memory_store(self.hass)
+
+                    global_memory = processed_input.get(CONF_LONG_MEMORY_GLOBAL, "")
+                    conversation_memory = processed_input.get(CONF_LONG_MEMORY_CONVERSATION, "")
+
+                    await store.async_set_global_summary(
+                        global_memory if isinstance(global_memory, str) else ""
+                    )
+                    await store.async_set_conversation_summary(
+                        conversation_memory if isinstance(conversation_memory, str) else ""
+                    )
+
+                    processed_input.pop(CONF_LONG_MEMORY_GLOBAL, None)
+                    processed_input.pop(CONF_LONG_MEMORY_CONVERSATION, None)
+
+                    # Always enable LLM_HASS_API for conversation
                     processed_input[CONF_LLM_HASS_API] = llm.LLM_API_ASSIST
 
                 # Update or create subentry
@@ -270,7 +295,6 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
                         title=processed_input.pop(CONF_NAME),
                         data=processed_input,
                     )
-
                 return self.async_update_and_abort(
                     self._get_entry(),
                     self._get_reconfigure_subentry(),
@@ -282,10 +306,17 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
             self.options.update(user_input)  # Update current options with user input
 
         # Build schema based on current options
+
+        if self._subentry_type == "conversation":
+            store = get_memory_store(self.hass)
+            memory = await store.async_get()
+            self.options[CONF_LONG_MEMORY_GLOBAL] = memory.global_summary or ""
+            self.options[CONF_LONG_MEMORY_CONVERSATION] = memory.conversation_summary or ""
+            
         schema = await ai_hub_config_option_schema(
             self._is_new, self._subentry_type, self.options
         )
-
+                
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(schema),
@@ -423,6 +454,18 @@ async def ai_hub_config_option_schema(
                 CONF_LONG_MEMORY_PINNED,
                 default=options.get(CONF_LONG_MEMORY_PINNED, RECOMMENDED_LONG_MEMORY_PINNED),
                 description={"suggested_value": options.get(CONF_LONG_MEMORY_PINNED)},
+            ): TemplateSelector(),
+            
+            vol.Optional(
+                CONF_LONG_MEMORY_GLOBAL,
+                default=options.get(CONF_LONG_MEMORY_GLOBAL, ""),
+                description={"suggested_value": options.get(CONF_LONG_MEMORY_GLOBAL)},
+            ): TemplateSelector(),
+
+            vol.Optional(
+                CONF_LONG_MEMORY_CONVERSATION,
+                default=options.get(CONF_LONG_MEMORY_CONVERSATION, ""),
+                description={"suggested_value": options.get(CONF_LONG_MEMORY_CONVERSATION)},
             ): TemplateSelector(),
         })
 

@@ -54,7 +54,9 @@
             "long_memory_enabled": "长期记忆",
             "long_memory_update_turns": "记忆更新轮数",
             "long_memory_max_chars": "记忆最大字符数",
-            "long_memory_pinned": "固定记忆"
+            "long_memory_pinned": "固定记忆",
+            "long_memory_global": "自动全局记忆",
+            "long_memory_conversation": "自动近期记忆"
           },
           "data_description": {
             "recommended": "使用推荐配置",
@@ -68,7 +70,9 @@
             "long_memory_enabled": "启用长期摘要记忆",
             "long_memory_update_turns": "每 N 轮对话更新一次长期记忆",
             "long_memory_max_chars": "长期记忆摘要的最大长度",
-            "long_memory_pinned": "始终需要记住的固定事实或偏好"
+            "long_memory_pinned": "始终需要记住的固定事实或偏好",
+            "long_memory_global": "从过往对话中自动提取、可手动编辑的全局长期记忆摘要",
+            "long_memory_conversation": "从近期对话中自动提取、可手动编辑的近期记忆摘要"
           }
         }
       }

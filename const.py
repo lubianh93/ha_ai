@@ -172,6 +172,8 @@ CONF_LONG_MEMORY_ENABLED: Final = "long_memory_enabled"
 CONF_LONG_MEMORY_UPDATE_TURNS: Final = "long_memory_update_turns"
 CONF_LONG_MEMORY_MAX_CHARS: Final = "long_memory_max_chars"
 CONF_LONG_MEMORY_PINNED: Final = "long_memory_pinned"
+CONF_LONG_MEMORY_GLOBAL: Final = "long_memory_global"
+CONF_LONG_MEMORY_CONVERSATION: Final = "long_memory_conversation"
 
 # TTS Configuration
 CONF_TTS_VOICE: Final = "voice"
