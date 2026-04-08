@@ -30,6 +30,8 @@ from .const import (
     CONF_LONG_MEMORY_MAX_CHARS,
     CONF_LONG_MEMORY_PINNED,
     CONF_LONG_MEMORY_UPDATE_TURNS,
+    CONF_LLM_PROVIDER,
+    DEFAULT_LLM_PROVIDER,
     DOMAIN,
     ERROR_GETTING_RESPONSE,
     RECOMMENDED_IMAGE_ANALYSIS_MODEL,
@@ -42,6 +44,7 @@ from .const import (
 )
 from .markdown_filter import filter_markdown_streaming
 from .memory import get_memory_store
+from .providers import LLMMessage, LLMStreamDelta, create_provider
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -229,7 +232,30 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
             "temperature": options.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE),
             "max_tokens": options.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS),
         }
-    
+    def _get_llm_provider_type(self) -> str:
+        """Get configured LLM provider type."""
+        provider_type = self.subentry.data.get(CONF_LLM_PROVIDER, DEFAULT_LLM_PROVIDER)
+        if not isinstance(provider_type, str) or not provider_type.strip():
+            return DEFAULT_LLM_PROVIDER
+        return provider_type.strip()
+    def _convert_messages_to_llm_messages(
+        self, messages: list[dict[str, Any]]
+    ) -> list[LLMMessage]:
+        """Convert internal message dicts to provider LLMMessage objects."""
+        llm_messages: list[LLMMessage] = []
+
+        for msg in messages:
+            llm_messages.append(
+                LLMMessage(
+                    role=str(msg.get("role", "")),
+                    content=msg.get("content", ""),
+                    name=msg.get("name"),
+                    tool_calls=msg.get("tool_calls"),
+                    tool_call_id=msg.get("tool_call_id"),
+                )
+            )
+
+        return llm_messages
     def _get_pinned_memory_text(self) -> str:
         """Render pinned memory from conversation config."""
         raw = self.subentry.data.get(CONF_LONG_MEMORY_PINNED, "")
@@ -487,13 +513,54 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
             await store.async_set_global_summary("")
             return
         await store.async_set_global_summary(merged_summary)          
-                     
+    
+    async def _transform_provider_stream(
+        self,
+        stream: AsyncGenerator[LLMStreamDelta, None],
+    ) -> AsyncGenerator[
+        conversation.AssistantContentDeltaDict | conversation.ToolResultContentDeltaDict
+    ]:
+        """Transform provider stream events into Home Assistant chat log deltas."""
+        yielded_assistant_role = False
+
+        async for delta in stream:
+            if not yielded_assistant_role:
+                yield {"role": "assistant"}
+                yielded_assistant_role = True
+
+            if delta.content:
+                yield {"content": filter_markdown_streaming(delta.content)}
+
+            if delta.tool_calls:
+                tool_inputs = []
+                for tool_call in delta.tool_calls:
+                    tool_id = tool_call.get("id")
+                    if not tool_id or not isinstance(tool_id, str) or not tool_id.strip():
+                        tool_id = ulid.ulid_now()
+
+                    arguments = tool_call.get("arguments", "")
+                    try:
+                        parsed_args = json.loads(arguments) if isinstance(arguments, str) and arguments else {}
+                    except json.JSONDecodeError:
+                        parsed_args = {}
+
+                    tool_inputs.append(
+                        llm.ToolInput(
+                            id=tool_id,
+                            tool_name=tool_call.get("name", ""),
+                            tool_args=parsed_args,
+                        )
+                    )
+
+                if tool_inputs:
+                    yield {"tool_calls": tool_inputs}
+                                 
     async def _async_handle_chat_log(
         self,
         chat_log: conversation.ChatLog,
         structure: dict[str, Any] | None = None,
     ) -> None:
-        """Generate an answer for the chat log."""
+        """Generate an answer for the chat log via configured LLM provider."""
         options = self.subentry.data
         model_config = self._get_model_config(chat_log)
 
@@ -504,12 +571,11 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         if structure and messages:
             for i, message in enumerate(messages):
                 if message.get("role") == "system":
-                    # Add JSON format requirement to system message
                     original_content = message.get("content", "")
                     if "JSON" not in original_content:
                         message["content"] = (
-                            original_content +
-                            "\n\nWhen providing structured data like automation names/"
+                            original_content
+                            + "\n\nWhen providing structured data like automation names/"
                             "descriptions, respond ONLY with valid JSON. Use the exact "
                             "JSON structure requested in the prompt. Do not include any "
                             "markdown formatting, explanations, or additional text."
@@ -519,101 +585,83 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         # Add tools if available
         tools = []
         if chat_log.llm_api:
-            tools.extend([
-                self._format_tool(tool, chat_log.llm_api.custom_serializer)
-                for tool in chat_log.llm_api.tools
-            ])
+            tools.extend(
+                [
+                    self._format_tool(tool, chat_log.llm_api.custom_serializer)
+                    for tool in chat_log.llm_api.tools
+                ]
+            )
 
-        # Build minimal request parameters using only essential parameters
-        # Ensure model is a valid non-empty string
+        # Validate model name
         model_name = model_config.get("model", "")
         if not model_name or not isinstance(model_name, str):
             model_name = self.default_model
             _LOGGER.warning("Model name was invalid, using default: %s", model_name)
 
-        request_params = {
+        # Validate API key before making request
+        if not self._api_key:
+            _LOGGER.error("Cannot make provider request: API key is empty or not configured")
+            raise HomeAssistantError("API key is not configured")
+
+        if not isinstance(self._api_key, str):
+            self._api_key = str(self._api_key)
+
+        # Get provider type from config
+        provider_type = self._get_llm_provider_type()
+
+        # Convert internal message dicts to provider messages
+        llm_messages = self._convert_messages_to_llm_messages(messages)
+
+        # Build provider config
+        provider_config = {
+            "api_key": self._api_key,
+            "base_url": options.get(CONF_CHAT_URL) or AI_HUB_CHAT_URL,
             "model": model_name,
-            "messages": messages,
-            "stream": True,
         }
 
-        if tools:
-            request_params["tools"] = tools
-
-        # Validate all message contents before sending
-        for i, msg in enumerate(messages):
-            msg_content = msg.get("content")
-            if msg_content is None:
-                msg["content"] = ""
-                _LOGGER.warning("Message %d had None content, replaced with empty string", i)
-            elif isinstance(msg_content, list):
-                # Validate each part in content list
-                for j, part in enumerate(msg_content):
-                    if part.get("type") == "text" and not isinstance(part.get("text"), str):
-                        part["text"] = str(part.get("text", ""))
-                        _LOGGER.warning("Message %d part %d had non-string text, converted", i, j)
-
-        # Get API URL from config before the request
-        api_url = options.get(CONF_CHAT_URL) or AI_HUB_CHAT_URL
-        if not isinstance(api_url, str) or not api_url.strip():
-            api_url = AI_HUB_CHAT_URL
-            _LOGGER.warning("API URL was invalid, using default: %s", api_url)
+        _LOGGER.debug(
+            "LLM Provider Request: provider=%s, model=%s, messages_count=%d, tools_count=%d",
+            provider_type,
+            model_name,
+            len(llm_messages),
+            len(tools),
+        )
 
         try:
-            # Validate API key before making request
-            if not self._api_key:
-                _LOGGER.error("Cannot make API request: API key is empty or not configured")
-                raise HomeAssistantError("API key is not configured")
-
-            # Ensure API key is a string
-            if not isinstance(self._api_key, str):
-                self._api_key = str(self._api_key)
-
-            _LOGGER.debug(
-                "API Request: model=%s, messages_count=%d",
-                model_name,
-                len(messages)
-            )
-
-            # Call AI Hub API with streaming via HTTP
-            headers = {
-                "Authorization": f"Bearer {self._api_key}",
-                "Content-Type": "application/json",
-            }
-
-            # Use Home Assistant's shared session for better performance
-            session = async_get_clientsession(self.hass)
-            async with session.post(
-                api_url,
-                json=request_params,
-                headers=headers,
-                timeout=aiohttp.ClientTimeout(total=60),
-            ) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    _LOGGER.error("API request failed: %s", error_text)
-                    raise HomeAssistantError(f"{ERROR_GETTING_RESPONSE}: {error_text}")
-
-                # Process streaming response using the new API
-                [
-                    content
-                    async for content in chat_log.async_add_delta_content_stream(
-                        self.entity_id, self._transform_stream(response)
-                    )
-                ]
-                # Update long-term memory only after a successful full response
-                try:
-                    await self._async_update_long_memory(chat_log)
-                except Exception as err:
-                    _LOGGER.warning("Failed to update long-term memory: %s", err)
-
-        except aiohttp.ClientError as err:
-            _LOGGER.error("Network error calling AI Hub API: %s", err)
-            raise HomeAssistantError(f"{ERROR_GETTING_RESPONSE}: Network error") from err
+            provider = create_provider(provider_type, provider_config)
         except Exception as err:
-            _LOGGER.error("Error calling AI Hub API: %s", err)
+            _LOGGER.error("Failed to create LLM provider %s: %s", provider_type, err)
             raise HomeAssistantError(ERROR_GETTING_RESPONSE) from err
 
+        try:
+            provider_stream = provider.complete_stream(
+                llm_messages,
+                tools=tools if tools else None,
+                temperature=model_config.get("temperature"),
+                max_tokens=model_config.get("max_tokens"),
+            )
+
+            [
+                content
+                async for content in chat_log.async_add_delta_content_stream(
+                    self.entity_id,
+                    self._transform_provider_stream(provider_stream),
+                )
+            ]
+
+            # Update long-term memory only after a successful full response
+            try:
+                await self._async_update_long_memory(chat_log)
+            except Exception as err:
+                _LOGGER.warning("Failed to update long-term memory: %s", err)
+
+        except aiohttp.ClientError as err:
+            _LOGGER.error("Network error calling provider %s: %s", provider_type, err)
+            raise HomeAssistantError(f"{ERROR_GETTING_RESPONSE}: Network error") from err
+        except Exception as err:
+            _LOGGER.error("Error calling provider %s: %s", provider_type, err)
+            raise HomeAssistantError(ERROR_GETTING_RESPONSE) from err
+    
     async def _async_convert_chat_log_to_messages(
         self, chat_log: conversation.ChatLog
     ) -> list[dict[str, Any]]:
