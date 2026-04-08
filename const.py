@@ -158,7 +158,7 @@ CONF_IMAGE_MODEL: Final = "image_model"
 CONF_IMAGE_URL: Final = "image_url"
 CONF_STT_MODEL: Final = "model"
 CONF_STT_FILE: Final = "file"
-
+CONF_LLM_PROVIDER: Final = "llm_provider"
 # LLM Parameters
 CONF_MAX_TOKENS: Final = "max_tokens"
 CONF_PROMPT: Final = "prompt"
@@ -227,7 +227,10 @@ RECOMMENDED_IMAGE_MODEL: Final = RECOMMENDED["image_model"]
 RECOMMENDED_IMAGE_ANALYSIS_MODEL: Final = RECOMMENDED["image_analysis_model"]
 RECOMMENDED_TTS_MODEL: Final = RECOMMENDED["tts_voice"]
 RECOMMENDED_STT_MODEL: Final = RECOMMENDED["stt_model"]
-
+LLM_PROVIDER_OPTIONS: Final = [
+    "openai_compatible",
+]
+DEFAULT_LLM_PROVIDER: Final = "openai_compatible"
 
 # =============================================================================
 # Default Names
@@ -392,6 +395,7 @@ RECOMMENDED_CONVERSATION_OPTIONS: Final = {
     CONF_PROMPT: DEFAULT_INSTRUCTIONS_PROMPT,
     CONF_CHAT_MODEL: RECOMMENDED_CHAT_MODEL,
     CONF_CHAT_URL: AI_HUB_CHAT_URL,
+    CONF_LLM_PROVIDER: DEFAULT_LLM_PROVIDER,
     CONF_TEMPERATURE: RECOMMENDED_TEMPERATURE,
     CONF_TOP_P: RECOMMENDED_TOP_P,
     CONF_TOP_K: RECOMMENDED_TOP_K,

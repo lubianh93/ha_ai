@@ -40,6 +40,9 @@ from .const import (
     CONF_CHAT_MODEL,
     CONF_CHAT_URL,
     CONF_CUSTOM_API_KEY,
+    CONF_LLM_PROVIDER,
+    DEFAULT_LLM_PROVIDER,
+    LLM_PROVIDER_OPTIONS,
 
     CONF_IMAGE_MODEL,
     CONF_IMAGE_URL,
@@ -403,6 +406,16 @@ async def ai_hub_config_option_schema(
                 default=options.get(CONF_CHAT_URL, AI_HUB_CHAT_URL),
                 description={"suggested_value": options.get(CONF_CHAT_URL)},
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.URL)),
+            vol.Optional(
+                CONF_LLM_PROVIDER,
+                default=options.get(CONF_LLM_PROVIDER, DEFAULT_LLM_PROVIDER),
+                description={"suggested_value": options.get(CONF_LLM_PROVIDER)},
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=LLM_PROVIDER_OPTIONS,
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
             vol.Optional(
                 CONF_CUSTOM_API_KEY,
                 default=options.get(CONF_CUSTOM_API_KEY, ""),

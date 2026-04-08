@@ -129,7 +129,16 @@ class LLMResponse:
         """Check if response contains tool calls."""
         return bool(self.tool_calls)
 
+@dataclass
+class LLMStreamDelta:
+    """Streaming delta from an LLM provider."""
 
+    content: str = ""
+    tool_calls: list[dict[str, Any]] | None = None
+    usage: dict[str, int] | None = None
+    finish_reason: str | None = None
+    done: bool = False
+    
 class LLMProvider(BaseProvider[LLMConfig], ABC):
     """Abstract base class for LLM providers.
 
@@ -170,7 +179,7 @@ class LLMProvider(BaseProvider[LLMConfig], ABC):
         self,
         messages: list[LLMMessage],
         **kwargs: Any,
-    ) -> AsyncGenerator[str, None]:
+    ) -> AsyncGenerator[LLMStreamDelta, None]:
         """Generate a streaming completion for the given messages.
 
         Args:
@@ -403,4 +412,5 @@ __all__ = [
     "create_default_provider",
     "list_providers",
     "get_provider_info",
+    "LLMStreamDelta",
 ]
