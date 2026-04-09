@@ -106,69 +106,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> boo
     # Get API key (may be None if not provided)
     api_key = entry.data.get(CONF_API_KEY)
 
-    # Validate API key by testing API connection only if provided
-    if api_key and api_key.strip():
-        try:
-            # Test the connection with a simple API call
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            }
-            payload = {
-                "model": "Qwen/Qwen3-8B",
-                "messages": [{"role": "user", "content": "Hi"}],
-                "max_tokens": 10,
-            }
-
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    AI_HUB_CHAT_URL,
-                    json=payload,
-                    headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as response:
-                    if response.status == 401:
-                        raise ConfigEntryAuthFailed("Invalid API key")
-                    if response.status != 200:
-                        error_text = await response.text()
-                        raise ConfigEntryNotReady(f"API test failed: {error_text}")
-        except aiohttp.ClientError as err:
-            _LOGGER.error("Failed to connect to API: %s", err)
-            raise ConfigEntryNotReady(f"Failed to connect: {err}") from err
-        except ConfigEntryAuthFailed:
-            raise
-        except Exception as err:
-            _LOGGER.error("API validation failed: %s", err)
-            raise ConfigEntryNotReady(f"API validation failed: {err}") from err
-
-    # Initialize runtime data in hass.data
-    ai_hub_data = get_or_create_ai_hub_data(hass)
-    ai_hub_data.api_key = api_key
-
-    # Store in entry.runtime_data
+    # Store API key in runtime_data for subentries/entities
     entry.runtime_data = api_key
 
-    # Forward setup to platforms
-    _LOGGER.debug("Setting up HA AI platforms: %s", PLATFORMS)
-
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    _LOGGER.debug("Platforms setup completed")
-
-    # Set up intent handlers
-    from .intents import async_setup_intents
-    await async_setup_intents(hass)
-
-    # Set up AI automation services
-    from .ai_automation import async_setup_ai_automation
-    await async_setup_ai_automation(hass)
-
-    # Set up services
-    from .services import async_setup_services
-    await async_setup_services(hass, entry)
-
-    # Listen for options updates
-    entry.async_on_unload(entry.add_update_listener(async_update_options))
-
     return True
 
 

@@ -249,7 +249,6 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                 LLMMessage(
                     role=str(msg.get("role", "")),
                     content=msg.get("content", ""),
-                    name=msg.get("name"),
                     tool_calls=msg.get("tool_calls"),
                     tool_call_id=msg.get("tool_call_id"),
                 )
