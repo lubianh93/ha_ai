@@ -53,6 +53,7 @@ from .const import (
     CONF_PROMPT,
     CONF_RECOMMENDED,
     CONF_STT_MODEL,
+    CONF_STT_URL,
 
     CONF_LONG_MEMORY_ENABLED,
     CONF_LONG_MEMORY_UPDATE_TURNS,
@@ -64,7 +65,7 @@ from .const import (
     RECOMMENDED_LONG_MEMORY_UPDATE_TURNS,
     RECOMMENDED_LONG_MEMORY_MAX_CHARS,
     RECOMMENDED_LONG_MEMORY_PINNED,
-    
+
     CONF_TEMPERATURE,
     CONF_TOP_K,
     CONF_TTS_LANG,
@@ -91,6 +92,7 @@ from .const import (
     RECOMMENDED_TOP_K,
 
     RECOMMENDED_TTS_OPTIONS,
+    SILICONFLOW_ASR_URL,
     SILICONFLOW_STT_MODELS,
     TTS_DEFAULT_LANG,
     TTS_DEFAULT_VOICE,
@@ -559,6 +561,16 @@ async def ai_hub_config_option_schema(
                     mode=SelectSelectorMode.DROPDOWN,
                 )
             ),
+            vol.Optional(
+                CONF_STT_URL,
+                default=options.get(CONF_STT_URL, SILICONFLOW_ASR_URL),
+                description={"suggested_value": options.get(CONF_STT_URL)},
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.URL)),
+            vol.Optional(
+                CONF_CUSTOM_API_KEY,
+                default=options.get(CONF_CUSTOM_API_KEY, ""),
+                description={"suggested_value": options.get(CONF_CUSTOM_API_KEY)},
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
         })
     
 

@@ -77,6 +77,39 @@ TO_REDACT = {
     "authorization",
 }
 
+def _is_configured(value: Any) -> bool:
+    """Return whether a value should be treated as configured."""
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _effective_api_key_for_subentry(entry: ConfigEntry, subentry) -> str:
+    """Return the effective API key for a subentry."""
+    custom_key = subentry.data.get(CONF_CUSTOM_API_KEY, "")
+    if _is_configured(custom_key):
+        return custom_key
+
+    runtime_key = getattr(entry, "runtime_data", None)
+    if _is_configured(runtime_key):
+        return runtime_key
+
+    primary_key = entry.data.get(CONF_API_KEY, "")
+    if _is_configured(primary_key):
+        return primary_key
+
+    return ""
+
+
+def _effective_url_for_subentry(subentry) -> str | None:
+    """Return the effective endpoint URL for a subentry."""
+    if subentry.subentry_type == SUBENTRY_CONVERSATION:
+        return subentry.data.get(CONF_CHAT_URL, AI_HUB_CHAT_URL)
+    if subentry.subentry_type == SUBENTRY_AI_TASK:
+        return subentry.data.get(CONF_IMAGE_URL, AI_HUB_IMAGE_GEN_URL)
+    if subentry.subentry_type == SUBENTRY_STT:
+        return subentry.data.get(CONF_STT_URL, SILICONFLOW_ASR_URL)
+    if subentry.subentry_type == "tts":
+        return EDGE_TTS_BASE_URL
+    return None
 
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant,
@@ -123,15 +156,17 @@ async def _get_configuration_diagnostics(
     entry: ConfigEntry,
 ) -> dict[str, Any]:
     """Get configuration diagnostics with sensitive data redacted."""
+    primary_key = entry.data.get(CONF_API_KEY, "")
+    runtime_key = getattr(entry, "runtime_data", None)
+
     config = {
         "data": async_redact_data(dict(entry.data), TO_REDACT),
         "options": async_redact_data(dict(entry.options), TO_REDACT),
+        "primary_api_key_configured": _is_configured(primary_key),
+        "primary_api_key_length": len(primary_key) if _is_configured(primary_key) else 0,
+        "runtime_api_key_available": _is_configured(runtime_key),
+        "runtime_api_key_length": len(runtime_key) if _is_configured(runtime_key) else 0,
     }
-
-    # Check if API key is configured
-    api_key = entry.data.get(CONF_API_KEY, "")
-    config["api_key_configured"] = bool(api_key and api_key.strip())
-    config["api_key_length"] = len(api_key) if api_key else 0
 
     return config
 
@@ -148,10 +183,17 @@ async def _get_subentries_diagnostics(
 
     for subentry_id, subentry in entry.subentries.items():
         subentry_data = async_redact_data(dict(subentry.data), TO_REDACT)
+        effective_key = _effective_api_key_for_subentry(entry, subentry)
+        effective_url = _effective_url_for_subentry(subentry)
+
         subentries_info[subentry_id] = {
             "type": subentry.subentry_type,
             "title": subentry.title,
             "data": subentry_data,
+            "custom_api_key_configured": _is_configured(subentry.data.get(CONF_CUSTOM_API_KEY, "")),
+            "effective_api_key_configured": _is_configured(effective_key),
+            "effective_api_key_length": len(effective_key) if _is_configured(effective_key) else 0,
+            "effective_url": effective_url,
         }
 
     return {
