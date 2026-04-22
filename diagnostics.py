@@ -1,12 +1,13 @@
 """Diagnostics support for AI Hub integration.
 
-This module provides diagnostic information collection for troubleshooting
-and debugging purposes. The diagnostics data is accessible through
-Home Assistant's built-in diagnostics feature.
+This module provides diagnostic information collection for troubleshooting and
+debugging purposes. The diagnostics data is accessible through Home Assistant's
+built-in diagnostics feature.
 
 Features:
 - API configuration diagnostics (with sensitive data redacted)
 - Service status information
+- Endpoint reachability checks based on effective subentry URLs
 - Recent error logs
 - Performance metrics
 - Configuration validation results
@@ -17,6 +18,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlparse
 
 try:
     from homeassistant.components.diagnostics import async_redact_data
@@ -37,29 +39,24 @@ except ModuleNotFoundError:  # pragma: no cover - used only in lightweight test 
         return redacted
 
 from .const import (
+    AI_HUB_CHAT_URL,
+    AI_HUB_IMAGE_GEN_URL,
     CONF_API_KEY,
+    CONF_CHAT_URL,
     CONF_CUSTOM_API_KEY,
+    CONF_IMAGE_URL,
+    CONF_STT_URL,
     DOMAIN,
     RETRY_BASE_DELAY,
     RETRY_MAX_ATTEMPTS,
-    TIMEOUT_CHAT_API,
-    TIMEOUT_IMAGE_API,
-    TIMEOUT_STT_API,
-    TIMEOUT_TTS_API,
-)
-
-from urllib.parse import urlparse
-
-from .const import (
-    AI_HUB_CHAT_URL,
-    AI_HUB_IMAGE_GEN_URL,
-    CONF_CHAT_URL,
-    CONF_IMAGE_URL,
-    CONF_STT_URL,
     SILICONFLOW_ASR_URL,
     SUBENTRY_AI_TASK,
     SUBENTRY_CONVERSATION,
     SUBENTRY_STT,
+    TIMEOUT_CHAT_API,
+    TIMEOUT_IMAGE_API,
+    TIMEOUT_STT_API,
+    TIMEOUT_TTS_API,
 )
 
 EDGE_TTS_BASE_URL = "https://speech.platform.bing.com"
@@ -77,12 +74,13 @@ TO_REDACT = {
     "authorization",
 }
 
+
 def _is_configured(value: Any) -> bool:
     """Return whether a value should be treated as configured."""
     return isinstance(value, str) and bool(value.strip())
 
 
-def _effective_api_key_for_subentry(entry: ConfigEntry, subentry) -> str:
+def _effective_api_key_for_subentry(entry: ConfigEntry, subentry: Any) -> str:
     """Return the effective API key for a subentry."""
     custom_key = subentry.data.get(CONF_CUSTOM_API_KEY, "")
     if _is_configured(custom_key):
@@ -99,7 +97,7 @@ def _effective_api_key_for_subentry(entry: ConfigEntry, subentry) -> str:
     return ""
 
 
-def _effective_url_for_subentry(subentry) -> str | None:
+def _effective_url_for_subentry(subentry: Any) -> str | None:
     """Return the effective endpoint URL for a subentry."""
     if subentry.subentry_type == SUBENTRY_CONVERSATION:
         return subentry.data.get(CONF_CHAT_URL, AI_HUB_CHAT_URL)
@@ -111,23 +109,12 @@ def _effective_url_for_subentry(subentry) -> str | None:
         return EDGE_TTS_BASE_URL
     return None
 
+
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant,
     entry: ConfigEntry,
 ) -> dict[str, Any]:
-    """Return diagnostics for a config entry.
-
-    This is called when the user requests diagnostics from the
-    Home Assistant UI under Settings -> Integrations -> AI Hub -> Diagnostics.
-
-    Args:
-        hass: Home Assistant instance
-        entry: Config entry for this integration
-
-    Returns:
-        Dictionary containing diagnostic information
-    """
-    # Wrap all diagnostics under the "ai_hub" category
+    """Return diagnostics for a config entry."""
     diagnostics: dict[str, Any] = {
         "ai_hub": {
             "integration": {
@@ -147,7 +134,6 @@ async def async_get_config_entry_diagnostics(
             "system_info": _get_system_info(hass),
         }
     }
-
     return diagnostics
 
 
@@ -190,7 +176,9 @@ async def _get_subentries_diagnostics(
             "type": subentry.subentry_type,
             "title": subentry.title,
             "data": subentry_data,
-            "custom_api_key_configured": _is_configured(subentry.data.get(CONF_CUSTOM_API_KEY, "")),
+            "custom_api_key_configured": _is_configured(
+                subentry.data.get(CONF_CUSTOM_API_KEY, "")
+            ),
             "effective_api_key_configured": _is_configured(effective_key),
             "effective_api_key_length": len(effective_key) if _is_configured(effective_key) else 0,
             "effective_url": effective_url,
@@ -220,7 +208,6 @@ async def _get_entities_diagnostics(
         "other": [],
     }
 
-    # Get all entities for this config entry
     for entity_entry in er.async_entries_for_config_entry(entity_registry, entry.entry_id):
         entity_data = {
             "entity_id": entity_entry.entity_id,
@@ -231,14 +218,12 @@ async def _get_entities_diagnostics(
             "disabled_by": str(entity_entry.disabled_by) if entity_entry.disabled_by else None,
         }
 
-        # Categorize by domain
         domain = entity_entry.domain
         if domain in entities_info:
             entities_info[domain].append(entity_data)
         else:
             entities_info["other"].append(entity_data)
 
-    # Calculate totals
     total_entities = sum(len(entities) for entities in entities_info.values())
 
     return {
@@ -246,13 +231,14 @@ async def _get_entities_diagnostics(
         "by_type": {
             domain: {"count": len(entities), "entities": entities}
             for domain, entities in entities_info.items()
-            if entities  # Only include non-empty categories
+            if entities
         },
     }
 
-async def _probe_url(session, url: str, timeout_seconds: int = 10) -> dict[str, Any]:
+
+async def _probe_url(session: Any, url: str, timeout_seconds: int = 10) -> dict[str, Any]:
+    """Probe a URL and return reachability information."""
     import aiohttp
-    from datetime import datetime
 
     try:
         start_time = datetime.now()
@@ -267,46 +253,20 @@ async def _probe_url(session, url: str, timeout_seconds: int = 10) -> dict[str, 
         return {"reachable": False, "error_type": "client", "error": str(exc)}
     except TimeoutError as exc:
         return {"reachable": False, "error_type": "timeout", "error": str(exc)}
-    except Exception as exc:
+    except Exception as exc:  # pragma: no cover
         return {"reachable": False, "error_type": "other", "error": str(exc)}
 
 
-async def _get_api_status_diagnostics(hass, entry) -> dict[str, Any]:
-    from homeassistant.helpers.aiohttp_client import async_get_clientsession
-
-    session = async_get_clientsession(hass)
-    status: dict[str, Any] = {}
-
-    for target in collect_api_monitor_targets(entry):
-        probe = await _probe_url(session, target["monitor_url"], timeout_seconds=10)
-        status[target["key"]] = {
-            "label": target["label"],
-            "url": target["url"],
-            "monitor_url": target["monitor_url"],
-            "sources": target["sources"],
-            "status": (
-                "reachable"
-                if probe.get("reachable")
-                else "unreachable" if probe.get("error_type") in {"client", "timeout"} else "error"
-            ),
-        }
-
-        if probe.get("reachable"):
-            status[target["key"]]["http_status"] = probe["http_status"]
-            status[target["key"]]["latency_ms"] = probe["latency_ms"]
-        else:
-            status[target["key"]]["error"] = probe.get("error")
-
-    return status
-
 def _normalize_monitor_url(url: str) -> str | None:
+    """Normalize a configured endpoint to a base URL for probing."""
     parsed = urlparse(url)
     if not parsed.scheme or not parsed.netloc:
         return None
     return f"{parsed.scheme}://{parsed.netloc}"
 
 
-def collect_api_monitor_targets(entry) -> list[dict[str, Any]]:
+def collect_api_monitor_targets(entry: ConfigEntry) -> list[dict[str, Any]]:
+    """Collect endpoint targets that should be monitored."""
     targets: dict[str, dict[str, Any]] = {}
 
     def add_target(configured_url: str, label: str, source: str) -> None:
@@ -358,6 +318,42 @@ def collect_api_monitor_targets(entry) -> list[dict[str, Any]]:
 
     return sorted(targets.values(), key=lambda target: target["label"])
 
+
+async def _get_api_status_diagnostics(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+) -> dict[str, Any]:
+    """Get API endpoint status diagnostics."""
+    from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+    session = async_get_clientsession(hass)
+    status: dict[str, Any] = {}
+
+    for target in collect_api_monitor_targets(entry):
+        probe = await _probe_url(session, target["monitor_url"], timeout_seconds=10)
+        status[target["key"]] = {
+            "label": target["label"],
+            "url": target["url"],
+            "monitor_url": target["monitor_url"],
+            "sources": target["sources"],
+            "status": (
+                "reachable"
+                if probe.get("reachable")
+                else "unreachable"
+                if probe.get("error_type") in {"client", "timeout"}
+                else "error"
+            ),
+        }
+
+        if probe.get("reachable"):
+            status[target["key"]]["http_status"] = probe["http_status"]
+            status[target["key"]]["latency_ms"] = probe["latency_ms"]
+        else:
+            status[target["key"]]["error"] = probe.get("error")
+
+    return status
+
+
 def _get_timeout_config() -> dict[str, Any]:
     """Get current timeout configuration."""
     return {
@@ -380,25 +376,17 @@ async def _get_statistics_diagnostics(
     hass: HomeAssistant,
     entry: ConfigEntry,
 ) -> dict[str, Any]:
-    """Get usage statistics diagnostics.
-
-    Note: This is a placeholder for future implementation.
-    Statistics tracking would need to be implemented separately.
-    """
-    # Get integration data if available
+    """Get usage statistics diagnostics."""
     integration_data = hass.data.get(DOMAIN, {})
-
     stats: dict[str, Any] = {
         "note": "Statistics tracking not yet implemented",
         "integration_data_available": bool(integration_data),
     }
 
-    # Check for any cached statistics
     if entry.entry_id in integration_data:
         entry_data = integration_data[entry.entry_id]
-        if isinstance(entry_data, dict):
-            if "stats" in entry_data:
-                stats["cached_stats"] = entry_data["stats"]
+        if isinstance(entry_data, dict) and "stats" in entry_data:
+            stats["cached_stats"] = entry_data["stats"]
 
     return stats
 
@@ -418,20 +406,7 @@ def _get_system_info(hass: HomeAssistant) -> dict[str, Any]:
 
 
 class DiagnosticsCollector:
-    """Helper class for collecting diagnostics data during runtime.
-
-    This class can be used to accumulate diagnostic information
-    during the lifetime of the integration, such as error counts,
-    API call statistics, and performance metrics.
-
-    Example usage:
-        collector = DiagnosticsCollector()
-        collector.record_api_call("chat", success=True, latency_ms=150)
-        collector.record_error("chat", "Timeout error")
-
-        # Later, get the collected data
-        data = collector.get_summary()
-    """
+    """Helper class for collecting diagnostics data during runtime."""
 
     def __init__(self) -> None:
         """Initialize the diagnostics collector."""
@@ -446,14 +421,7 @@ class DiagnosticsCollector:
         latency_ms: float | None = None,
         **extra: Any,
     ) -> None:
-        """Record an API call.
-
-        Args:
-            api_name: Name of the API (e.g., "chat", "stt", "tts")
-            success: Whether the call was successful
-            latency_ms: Latency in milliseconds
-            **extra: Additional data to record
-        """
+        """Record an API call."""
         if api_name not in self._api_calls:
             self._api_calls[api_name] = []
 
@@ -463,10 +431,8 @@ class DiagnosticsCollector:
             "latency_ms": latency_ms,
             **extra,
         }
-
         self._api_calls[api_name].append(record)
 
-        # Keep only last 100 records per API
         if len(self._api_calls[api_name]) > 100:
             self._api_calls[api_name] = self._api_calls[api_name][-100:]
 
@@ -476,35 +442,23 @@ class DiagnosticsCollector:
         error: str,
         **extra: Any,
     ) -> None:
-        """Record an error.
-
-        Args:
-            context: Context where the error occurred
-            error: Error message
-            **extra: Additional data to record
-        """
+        """Record an error."""
         record = {
             "timestamp": datetime.now().isoformat(),
             "context": context,
             "error": error,
             **extra,
         }
-
         self._errors.append(record)
 
-        # Keep only last 50 errors
         if len(self._errors) > 50:
             self._errors = self._errors[-50:]
 
     def get_summary(self) -> dict[str, Any]:
-        """Get a summary of collected diagnostics.
-
-        Returns:
-            Dictionary containing diagnostic summary
-        """
+        """Get a summary of collected diagnostics."""
         uptime = datetime.now() - self._start_time
-
         api_summary: dict[str, Any] = {}
+
         for api_name, calls in self._api_calls.items():
             total = len(calls)
             successful = sum(1 for c in calls if c.get("success"))
@@ -522,7 +476,7 @@ class DiagnosticsCollector:
         return {
             "uptime_seconds": uptime.total_seconds(),
             "api_summary": api_summary,
-            "recent_errors": self._errors[-10:],  # Last 10 errors
+            "recent_errors": self._errors[-10:],
             "total_errors": len(self._errors),
         }
 
@@ -533,16 +487,11 @@ class DiagnosticsCollector:
         self._start_time = datetime.now()
 
 
-# Global diagnostics collector instance
 _diagnostics_collector: DiagnosticsCollector | None = None
 
 
 def get_diagnostics_collector() -> DiagnosticsCollector:
-    """Get or create the global diagnostics collector.
-
-    Returns:
-        DiagnosticsCollector instance
-    """
+    """Get or create the global diagnostics collector."""
     global _diagnostics_collector
     if _diagnostics_collector is None:
         _diagnostics_collector = DiagnosticsCollector()
