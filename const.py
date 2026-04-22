@@ -70,7 +70,12 @@ AI_HUB_IMAGE_GEN_URL: Final = API_URLS["image"]
 SILICONFLOW_API_BASE: Final = API_URLS["siliconflow_base"]
 SILICONFLOW_ASR_URL: Final = API_URLS["siliconflow_asr"]
 
+CONF_STT_URL: Final = "stt_url"
 
+SUBENTRY_CONVERSATION: Final = "conversation"
+SUBENTRY_AI_TASK: Final = "ai_task_data"
+SUBENTRY_STT: Final = "stt"
+SUBENTRY_TRANSLATION: Final = "translation"
 # =============================================================================
 # Timeouts Configuration (in seconds)
 # =============================================================================
@@ -229,6 +234,7 @@ RECOMMENDED_TTS_MODEL: Final = RECOMMENDED["tts_voice"]
 RECOMMENDED_STT_MODEL: Final = RECOMMENDED["stt_model"]
 LLM_PROVIDER_OPTIONS: Final = [
     "openai_compatible",
+    "anthropic_compatible",
 ]
 DEFAULT_LLM_PROVIDER: Final = "openai_compatible"
 
@@ -425,6 +431,7 @@ RECOMMENDED_TTS_OPTIONS: Final = {
 RECOMMENDED_STT_OPTIONS: Final = {
     CONF_RECOMMENDED: True,
     CONF_STT_MODEL: STT_DEFAULT_MODEL,
+    CONF_STT_MODEL: RECOMMENDED_STT_MODEL,
 }
 
 

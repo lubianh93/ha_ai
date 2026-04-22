@@ -48,6 +48,22 @@ from .const import (
     TIMEOUT_TTS_API,
 )
 
+from urllib.parse import urlparse
+
+from .const import (
+    AI_HUB_CHAT_URL,
+    AI_HUB_IMAGE_GEN_URL,
+    CONF_CHAT_URL,
+    CONF_IMAGE_URL,
+    CONF_STT_URL,
+    SILICONFLOW_ASR_URL,
+    SUBENTRY_AI_TASK,
+    SUBENTRY_CONVERSATION,
+    SUBENTRY_STT,
+)
+
+EDGE_TTS_BASE_URL = "https://speech.platform.bing.com"
+
 _LOGGER = logging.getLogger(__name__)
 
 # Keys that contain sensitive data and should be redacted
@@ -192,75 +208,113 @@ async def _get_entities_diagnostics(
         },
     }
 
-
-async def _get_api_status_diagnostics(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-) -> dict[str, Any]:
-    """Get API status diagnostics.
-
-    Tests connectivity to various API endpoints used by the integration.
-    """
+async def _probe_url(session, url: str, timeout_seconds: int = 10) -> dict[str, Any]:
     import aiohttp
+    from datetime import datetime
+
+    try:
+        start_time = datetime.now()
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=timeout_seconds)) as response:
+            latency = (datetime.now() - start_time).total_seconds() * 1000
+            return {
+                "reachable": True,
+                "http_status": response.status,
+                "latency_ms": round(latency, 2),
+            }
+    except aiohttp.ClientError as exc:
+        return {"reachable": False, "error_type": "client", "error": str(exc)}
+    except TimeoutError as exc:
+        return {"reachable": False, "error_type": "timeout", "error": str(exc)}
+    except Exception as exc:
+        return {"reachable": False, "error_type": "other", "error": str(exc)}
+
+
+async def _get_api_status_diagnostics(hass, entry) -> dict[str, Any]:
     from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-    status: dict[str, Any] = {
-        "siliconflow": {"status": "unknown", "latency_ms": None},
-        "edge_tts": {"status": "unknown", "latency_ms": None},
-    }
-
     session = async_get_clientsession(hass)
+    status: dict[str, Any] = {}
 
-    # Test SiliconFlow API (just connectivity, not authentication)
-    try:
-        start_time = datetime.now()
-        async with session.get(
-            "https://api.siliconflow.cn",
-            timeout=aiohttp.ClientTimeout(total=10),
-        ) as response:
-            latency = (datetime.now() - start_time).total_seconds() * 1000
-            status["siliconflow"] = {
-                "status": "reachable",
-                "http_status": response.status,
-                "latency_ms": round(latency, 2),
-            }
-    except aiohttp.ClientError as e:
-        status["siliconflow"] = {
-            "status": "unreachable",
-            "error": str(e),
-        }
-    except Exception as e:
-        status["siliconflow"] = {
-            "status": "error",
-            "error": str(e),
+    for target in collect_api_monitor_targets(entry):
+        probe = await _probe_url(session, target["monitor_url"], timeout_seconds=10)
+        status[target["key"]] = {
+            "label": target["label"],
+            "url": target["url"],
+            "monitor_url": target["monitor_url"],
+            "sources": target["sources"],
+            "status": (
+                "reachable"
+                if probe.get("reachable")
+                else "unreachable" if probe.get("error_type") in {"client", "timeout"} else "error"
+            ),
         }
 
-    # Test Edge TTS (Microsoft Speech Service)
-    try:
-        start_time = datetime.now()
-        async with session.get(
-            "https://speech.platform.bing.com",
-            timeout=aiohttp.ClientTimeout(total=10),
-        ) as response:
-            latency = (datetime.now() - start_time).total_seconds() * 1000
-            status["edge_tts"] = {
-                "status": "reachable",
-                "http_status": response.status,
-                "latency_ms": round(latency, 2),
-            }
-    except aiohttp.ClientError as e:
-        status["edge_tts"] = {
-            "status": "unreachable",
-            "error": str(e),
-        }
-    except Exception as e:
-        status["edge_tts"] = {
-            "status": "error",
-            "error": str(e),
-        }
+        if probe.get("reachable"):
+            status[target["key"]]["http_status"] = probe["http_status"]
+            status[target["key"]]["latency_ms"] = probe["latency_ms"]
+        else:
+            status[target["key"]]["error"] = probe.get("error")
 
     return status
 
+def _normalize_monitor_url(url: str) -> str | None:
+    parsed = urlparse(url)
+    if not parsed.scheme or not parsed.netloc:
+        return None
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def collect_api_monitor_targets(entry) -> list[dict[str, Any]]:
+    targets: dict[str, dict[str, Any]] = {}
+
+    def add_target(configured_url: str, label: str, source: str) -> None:
+        normalized = _normalize_monitor_url(configured_url)
+        if normalized is None:
+            return
+
+        parsed = urlparse(configured_url)
+        path_key = parsed.path.strip("/").replace("/", "_") or "root"
+        key = (
+            f"{label.lower().replace(' ', '_')}_"
+            f"{parsed.netloc.replace('.', '_').replace(':', '_')}_{path_key}"
+        )
+
+        if configured_url not in targets:
+            targets[configured_url] = {
+                "key": key,
+                "label": label,
+                "url": configured_url,
+                "monitor_url": normalized,
+                "sources": [source],
+            }
+            return
+
+        if source not in targets[configured_url]["sources"]:
+            targets[configured_url]["sources"].append(source)
+
+    for subentry in entry.subentries.values():
+        if subentry.subentry_type == SUBENTRY_CONVERSATION:
+            add_target(
+                subentry.data.get(CONF_CHAT_URL, AI_HUB_CHAT_URL),
+                "Conversation API",
+                subentry.title,
+            )
+        elif subentry.subentry_type == SUBENTRY_AI_TASK:
+            add_target(
+                subentry.data.get(CONF_IMAGE_URL, AI_HUB_IMAGE_GEN_URL),
+                "AI Task Image API",
+                subentry.title,
+            )
+        elif subentry.subentry_type == SUBENTRY_STT:
+            add_target(
+                subentry.data.get(CONF_STT_URL, SILICONFLOW_ASR_URL),
+                "STT API",
+                subentry.title,
+            )
+        elif subentry.subentry_type == "tts":
+            add_target(EDGE_TTS_BASE_URL, "Edge TTS API", subentry.title)
+
+    return sorted(targets.values(), key=lambda target: target["label"])
 
 def _get_timeout_config() -> dict[str, Any]:
     """Get current timeout configuration."""

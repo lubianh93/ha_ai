@@ -26,7 +26,6 @@ from ..const import (
     CONF_STT_FILE,
     DEFAULT_REQUEST_TIMEOUT,
     RECOMMENDED_STT_MODEL,
-    SILICONFLOW_ASR_URL,
     SILICONFLOW_STT_AUDIO_FORMATS,
     SILICONFLOW_STT_MODELS,
     STT_MAX_FILE_SIZE_MB,
@@ -38,7 +37,8 @@ _LOGGER = logging.getLogger(__name__)
 async def handle_stt_transcribe(
     hass: HomeAssistant,
     call: ServiceCall,
-    siliconflow_api_key: str
+    siliconflow_api_key: str,
+    stt_url: str,
 ) -> dict:
     """Handle Silicon Flow STT service call."""
     try:
@@ -93,7 +93,7 @@ async def handle_stt_transcribe(
         timeout = aiohttp.ClientTimeout(total=DEFAULT_REQUEST_TIMEOUT / 1000)
 
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(SILICONFLOW_ASR_URL, headers=headers, data=form_data) as response:
+            async with session.post(stt_url, headers=headers, data=form_data) as response:
                 if response.status != 200:
                     error_text = await response.text()
                     _LOGGER.error("STT API error: %s - %s", response.status, error_text)
