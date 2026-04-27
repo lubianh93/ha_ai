@@ -23,6 +23,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import CONF_LLM_HASS_API, CONF_PROMPT, DOMAIN
 from .entity import AIHubBaseLLMEntity
 from .intents import get_config_cache
+from .intents.command_classifier import classify_global_control_command
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -121,17 +122,18 @@ class AIHubConversationAgent(
         # 1b. 检查是否需要本地意图处理 (全局设备控制)
         try:
             from .intents import get_global_intent_handler
-            intent_handler = get_global_intent_handler(self.hass)
 
-            if intent_handler and intent_handler.should_handle(user_input.text):
+            intent_handler = get_global_intent_handler(self.hass)
+            should_force_local = self._should_skip_ha_standard_processing(user_input.text)
+
+            if intent_handler and should_force_local and intent_handler.should_handle(user_input.text):
                 _LOGGER.debug("Local intent processing: %s", user_input.text)
                 intent_result = await intent_handler.handle(user_input.text, user_input.language)
-
                 if intent_result:
                     _LOGGER.debug("Local intent completed")
                     return conversation.ConversationResult(
                         response=intent_result["response"],
-                        conversation_id=user_input.conversation_id
+                        conversation_id=user_input.conversation_id,
                     )
         except Exception as e:
             _LOGGER.debug("Local intent handling failed: %s", e)
@@ -411,57 +413,29 @@ class AIHubConversationAgent(
         return any(feature in text for feature in local_features)
 
     def _should_skip_ha_standard_processing(self, text: str) -> bool:
-        """Check whether to skip Home Assistant standard processing and go directly to local intent
-
-        Only very explicit local intents skip HA standard processing, such as:
-        - "Turn on all devices"
-        - "Turn off all lights"
-        """
+        """Only explicit command-shaped global controls skip HA standard processing."""
         try:
             config = self._config_cache.get_config()
             if not config:
                 return False
 
-            # Get config from local_intents.GlobalDeviceControl
-            local_intents = config.get('local_intents', {})
-            global_config = local_intents.get('GlobalDeviceControl', {})
+            local_intents = config.get("local_intents", {})
+            global_config = local_intents.get("GlobalDeviceControl", {})
             if not global_config:
                 return False
 
-            text_lower = text.lower().strip()
+            decision = classify_global_control_command(text, global_config)
 
-            # Check global keywords
-            global_keywords = global_config.get('global_keywords', [])
-            has_global = any(keyword in text_lower for keyword in global_keywords)
+            _LOGGER.debug(
+                "Local command classifier: text=%r, kind=%s, execute=%s, reason=%s",
+                text,
+                decision.kind,
+                decision.should_execute_locally,
+                decision.reason,
+            )
 
-            # Check explicit on/off keywords
-            on_keywords = global_config.get('on_keywords', [])
-            off_keywords = global_config.get('off_keywords', [])
-            has_action = any(keyword in text_lower for keyword in on_keywords + off_keywords)
-
-            # Check if contains parameter control keywords (brightness, volume, etc.)
-            param_keywords = global_config.get('param_keywords', [])
-            brightness_keywords = global_config.get('brightness_keywords', [])
-            volume_keywords = global_config.get('volume_keywords', [])
-            color_keywords = global_config.get('color_keywords', [])
-            temperature_keywords = global_config.get('temperature_keywords', [])
-
-            has_param_control = any(keyword in text_lower for keyword in
-                                    param_keywords + brightness_keywords + volume_keywords +
-                                    color_keywords + temperature_keywords)
-
-            # Skip HA processing: only explicit global commands go to local processing
-            # Requires both global keywords and explicit action or parameter control
-            should_skip = has_global and (has_action or has_param_control)
-
-            if should_skip:
-                _LOGGER.debug(
-                    "Skipping HA processing: '%s' (global=%s, action=%s, param=%s)",
-                    text, has_global, has_action, has_param_control
-                )
-
-            return should_skip
+            return decision.should_execute_locally
 
         except Exception as e:
-            _LOGGER.debug(f"Error checking whether to skip HA processing: {e}")
+            _LOGGER.debug("Error classifying local command: %s", e)
             return False

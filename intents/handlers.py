@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import intent
 
 from .loader import get_global_config
+from .command_classifier import classify_global_control_command
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -81,36 +82,29 @@ class LocalIntentHandler:
         return ""
 
     def should_handle(self, text: str) -> bool:
-        """智能判断是否应该使用本地意图处理."""
+        """判断是否应该使用本地意图处理。
+
+        本地处理只接管明确的、命令式的全局控制。
+        讨论、纠错、抱怨、反问，即使包含全局关键词，也不执行。
+        """
         if not self.local_config:
             return False
 
-        global_config = self.local_config.get('GlobalDeviceControl', {})
+        global_config = self.local_config.get("GlobalDeviceControl", {})
         if not global_config:
             return False
 
-        text_clean = text.strip()
-        text_lower = text.lower().strip()
+        decision = classify_global_control_command(text, global_config)
 
-        # 规则1: 检查明确的全局关键词 - HA不支持的功能
-        global_keywords = global_config.get('global_keywords', [])
-        has_global_keyword = any(keyword in text_lower for keyword in global_keywords)
+        _LOGGER.debug(
+            "Local intent classifier: text=%r, kind=%s, execute=%s, reason=%s",
+            text,
+            decision.kind,
+            decision.should_execute_locally,
+            decision.reason,
+        )
 
-        # 规则2: 检查明确的动作词 + 简短文本 (避免处理上下文指令)
-        action_words = global_config.get('on_keywords', []) + global_config.get('off_keywords', [])
-        has_action_word = any(action in text_lower for action in action_words)
-        is_short_text = len(text_clean) <= 4
-
-        # 关键判断: 必须有全局关键词
-        should_handle = has_global_keyword
-
-        # 对于有动作词的短文本，如果缺少全局关键词，则不处理
-        if has_action_word and is_short_text and not has_global_keyword:
-            should_handle = False
-
-        _LOGGER.debug(f"Local intent check: '{text}' -> {should_handle}")
-
-        return should_handle
+        return decision.should_execute_locally
 
     async def handle(self, text: str, language: str = "zh-CN"):
         """处理本地意图."""
