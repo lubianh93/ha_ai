@@ -1,8 +1,8 @@
 """Image services for AI Hub - 图像分析和生成功能.
 
 本模块提供图像相关的服务功能：
-- 图像分析：使用 SiliconFlow 视觉模型分析图像内容
-- 图像生成：使用 SiliconFlow 模型生成图像
+- 图像分析：使用已配置的视觉模型分析图像内容
+- 图像生成：使用已配置的图像模型生成图像
 
 主要函数:
 - handle_analyze_image: 处理图像分析服务调用
@@ -105,7 +105,7 @@ async def process_image(image_data: bytes, max_size: int = 1024, quality: int = 
 
 async def handle_stream_response(hass: HomeAssistant, response: aiohttp.ClientResponse) -> dict:
     """Handle streaming response from API."""
-    event_id = f"siliconflow_image_analysis_{int(time.time())}"
+    event_id = f"{DOMAIN}_image_analysis_{int(time.time())}"
 
     try:
         hass.bus.async_fire(f"{DOMAIN}_image_analysis_start", {"event_id": event_id})
@@ -160,8 +160,10 @@ async def handle_analyze_image(
         if not api_key or not api_key.strip():
             return {
                 "success": False,
-                "error": "SiliconFlow API密钥未配置，请先在集成配置中设置API密钥"
+                "error": "API key is not configured. Please set a provider key or custom API key."
             }
+        if not chat_url or not str(chat_url).strip():
+            return {"success": False, "error": "Image analysis API URL is not configured"}
 
         image_data = None
 
@@ -239,8 +241,10 @@ async def handle_generate_image(
         if not api_key or not api_key.strip():
             return {
                 "success": False,
-                "error": "SiliconFlow API密钥未配置，请先在集成配置中设置API密钥"
+                "error": "API key is not configured. Please set a provider key or custom API key."
             }
+        if not image_url or not str(image_url).strip():
+            return {"success": False, "error": "Image generation API URL is not configured"}
 
         prompt = call.data["prompt"]
         size = call.data.get("size", "1024x1024")

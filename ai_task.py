@@ -17,7 +17,6 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
-    AI_HUB_IMAGE_GEN_URL,
     CONF_CHAT_MODEL,
     CONF_IMAGE_MODEL,
     CONF_IMAGE_URL,
@@ -100,11 +99,11 @@ class AIHubTaskEntity(
         model = conversation_model
         is_recommended = subentry.data.get("recommended", False)
 
-        from .const import AI_HUB_IMAGE_MODELS
+        from .const import IMAGE_MODEL_EXAMPLES
 
         if (
             model in VISION_MODELS
-            or model in AI_HUB_IMAGE_MODELS
+            or model in IMAGE_MODEL_EXAMPLES
             or "-image" in model.lower()
             or "cogview" in model.lower()
             or is_recommended  # Always enable in recommended mode
@@ -232,8 +231,11 @@ class AIHubTaskEntity(
                 "Content-Type": "application/json",
             }
 
-            # Get image URL from config (complete URL)
-            image_url = options.get(CONF_IMAGE_URL, AI_HUB_IMAGE_GEN_URL)
+            image_url = str(options.get(CONF_IMAGE_URL, "") or "").strip()
+            if not image_url:
+                raise HomeAssistantError(
+                    "Image generation API URL is not configured. Please set it in the AI Task subentry."
+                )
 
             async with aiohttp.ClientSession() as session:
                 async with session.post(

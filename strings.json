@@ -5,7 +5,9 @@
         "title": "Connect to HA AI",
         "description": "Please enter the API key(s) required for the corresponding service. For all services, please enter all API keys. If you have any questions, you can click the question mark icon to view the help documentation.",
         "data": {
-          "api_key": "SiliconFlow API Key"
+          "name": "Name",
+          "api_key": "Legacy Main API Key",
+          "api_keys": "Provider API Keys"
         }
       }
     },
@@ -14,7 +16,8 @@
       "invalid_auth": "Invalid API key",
       "unknown": "Unknown error",
       "api_key_required": "API key is required",
-      "invalid_input": "Invalid input"
+      "invalid_input": "Invalid input",
+      "invalid_model_catalog": "Model catalog must be valid JSON. Use a list of strings, a list of {\"id\":\"...\",\"note\":\"...\"}, or an object map."
     },
     "abort": {
       "already_configured": "This API key is already configured"
@@ -41,14 +44,16 @@
       "step": {
         "init": {
           "title": "Configure Conversation Agent",
-          "description": "Customize the behavior and parameters of the conversation agent. Enable recommended mode to use the best settings, or disable it to customize all parameters. After submitting, the configuration information will be switched.",
+          "description": "Configure the conversation agent. All advanced options are shown so you can use any OpenAI-compatible provider.",
           "data": {
             "name": "Name",
-            "recommended": "Recommended Mode",
+            "provider_preset": "Provider Preset",
             "prompt": "Prompt Template",
             "chat_model": "Chat Model",
+            "model_catalog": "Model Catalog",
             "chat_url": "Chat API URL",
             "llm_provider": "LLM Provider",
+            "provider_key": "Provider Key Name",
             "custom_api_key": "Custom API Key",
             "temperature": "Temperature",
             "top_k": "Top K",
@@ -62,12 +67,14 @@
             "long_memory_conversation": "Auto Recent Memory"
           },
           "data_description": {
-            "recommended": "Use recommended settings",
+            "provider_preset": "Choose a template to prefill provider key, URL, and model fields. Select Custom to edit freely.",
             "prompt": "Custom system prompt",
             "chat_model": "Select or enter custom model name",
+            "model_catalog": "Editable JSON list of models. Use id and note fields to add pricing, status, or other remarks.",
             "chat_url": "Complete chat API URL (if API fails, try appending /chat/completions)",
             "llm_provider": "Select which chat model API provider to use",
-            "custom_api_key": "Custom API key (leave empty to use main key)",
+            "provider_key": "Name to look up in the top-level Provider API Keys JSON",
+            "custom_api_key": "Custom API key for this subentry",
             "temperature": "Control creativity (0-2)",
             "max_tokens": "Maximum response length",
             "max_history_messages": "Number of history messages to keep",
@@ -90,21 +97,25 @@
       "step": {
         "init": {
           "title": "Configure AI Task",
-          "description": "Customize AI task behavior and parameters. Chat model automatically follows Conversation Agent settings. Enable recommended mode for best settings, or disable to customize parameters.",
+          "description": "Configure AI task behavior and image generation. Chat model follows the Conversation Agent settings.",
           "data": {
             "name": "Name",
-            "recommended": "Recommended Mode",
+            "provider_preset": "Provider Preset",
             "image_model": "Image Model",
+            "model_catalog": "Image Model Catalog",
             "image_url": "Image Generation API URL",
+            "provider_key": "Provider Key Name",
             "custom_api_key": "Custom API Key",
             "temperature": "Temperature",
             "max_tokens": "Max Tokens"
           },
           "data_description": {
-            "recommended": "Use recommended settings",
+            "provider_preset": "Choose a template to prefill provider key, URL, and model fields. Select Custom to edit freely.",
             "image_model": "Select or enter custom image generation model",
-            "image_url": "Complete image generation API URL (default: SiliconFlow)",
-            "custom_api_key": "Custom API key (leave empty to use main key)",
+            "model_catalog": "Editable JSON list of image models with optional notes such as price or availability.",
+            "image_url": "Complete image generation API URL",
+            "provider_key": "Name to look up in the top-level Provider API Keys JSON",
+            "custom_api_key": "Custom API key for this subentry",
             "temperature": "Control creativity (0-2)",
             "max_tokens": "Maximum response length"
           }
@@ -113,22 +124,32 @@
     },
     "tts": {
       "initiate_flow": {
-        "user": "Add Edge TTS Voice",
-        "reconfigure": "Reconfigure Edge TTS Voice"
+        "user": "Add TTS Voice",
+        "reconfigure": "Reconfigure TTS Voice"
       },
-      "entry_type": "HA AI Edge TTS Voice",
+      "entry_type": "HA AI TTS Voice",
       "step": {
         "init": {
-          "title": "Configure Edge TTS Voice",
-          "description": "Customize Edge TTS text-to-speech parameters. Edge TTS is a free TTS service provided by Microsoft, supporting multiple voices and languages.",
+          "title": "Configure TTS Voice",
+          "description": "Configure text-to-speech. Edge TTS remains available as a free option; other providers can use an OpenAI-compatible HTTP speech endpoint.",
           "data": {
             "name": "Name",
-            "recommended": "Recommended Mode",
+            "provider_preset": "Provider Preset",
+            "tts_provider": "TTS Provider",
+            "tts_model": "TTS Model",
+            "tts_url": "TTS API URL",
+            "provider_key": "Provider Key Name",
+            "custom_api_key": "Custom API Key",
             "voice": "Voice",
             "lang": "Language"
           },
           "data_description": {
-            "recommended": "Use recommended settings",
+            "provider_preset": "Choose a template. Aliyun Bailian uses a serialized realtime session when configured with a wss:// URL.",
+            "tts_provider": "Use edge_tts for free Edge TTS, or openai_compatible_tts for HTTP speech APIs",
+            "tts_model": "Provider model name, for example tts-1 or qwen-tts",
+            "tts_url": "Complete HTTP speech API URL",
+            "provider_key": "Name to look up in the top-level Provider API Keys JSON",
+            "custom_api_key": "Custom API key for this TTS subentry",
             "voice": "Select Edge TTS voice, like Xiaoxiao, Yunxi, etc.",
             "lang": "Select voice language, like zh-CN for Chinese"
           }
@@ -137,22 +158,32 @@
     },
     "stt": {
       "initiate_flow": {
-        "user": "Add Silicon Flow ASR",
-        "reconfigure": "Reconfigure Silicon Flow ASR"
+        "user": "Add STT",
+        "reconfigure": "Reconfigure STT"
       },
-      "entry_type": "HA AI Silicon Flow ASR",
+      "entry_type": "HA AI STT",
       "step": {
         "init": {
-          "title": "Configure Silicon Flow ASR",
-          "description": "Customize Silicon Flow ASR speech-to-text parameters. Silicon Flow provides high-quality ASR service supporting multiple models and languages.",
+          "title": "Configure STT",
+          "description": "Configure speech-to-text with an OpenAI-compatible transcription endpoint.",
           "data": {
             "name": "Name",
-            "recommended": "Recommended Mode",
-            "model": "ASR Model"
+            "provider_preset": "Provider Preset",
+            "stt_provider": "STT Provider",
+            "model": "STT Model",
+            "model_catalog": "STT Model Catalog",
+            "stt_url": "STT API URL",
+            "provider_key": "Provider Key Name",
+            "custom_api_key": "Custom API Key"
           },
           "data_description": {
-            "recommended": "Use recommended settings",
-            "model": "Select ASR model: FunAudioLLM/SenseVoiceSmall (recommended) or TeleAI/TeleSpeechASR"
+            "provider_preset": "Choose a template to prefill provider key, URL, and model fields. Select Custom to edit freely.",
+            "stt_provider": "Provider identifier, editable for future providers",
+            "model": "Select or enter a speech recognition model",
+            "model_catalog": "Editable JSON list of STT models with optional notes",
+            "stt_url": "Complete transcription API URL",
+            "provider_key": "Name to look up in the top-level Provider API Keys JSON",
+            "custom_api_key": "Custom API key for this STT subentry"
           }
         }
       }
@@ -161,8 +192,16 @@
   "services": {
     "generate_image": {
       "name": "Generate Image",
-      "description": "Generate image using HA AI SiliconFlow model",
+      "description": "Generate image using the configured HA AI image provider",
       "fields": {
+        "config_entry_id": {
+          "name": "Config Entry ID",
+          "description": "Specify when multiple HA AI config entries exist"
+        },
+        "subentry_id": {
+          "name": "Subentry ID",
+          "description": "Specify which image generation subentry to use"
+        },
         "prompt": {
           "name": "Prompt",
           "description": "Describe the image content to generate"
@@ -181,6 +220,14 @@
       "name": "Analyze Image",
       "description": "Analyze image content using HA AI",
       "fields": {
+        "config_entry_id": {
+          "name": "Config Entry ID",
+          "description": "Specify when multiple HA AI config entries exist"
+        },
+        "subentry_id": {
+          "name": "Subentry ID",
+          "description": "Specify which conversation or vision subentry to use"
+        },
         "image_file": {
           "name": "Image File",
           "description": "Path to the image file to analyze"
@@ -212,34 +259,58 @@
       }
     },
     "tts_say": {
-      "name": "Edge TTS Speech Synthesis",
-      "description": "Convert text to speech using Edge TTS",
+      "name": "TTS Speech Synthesis",
+      "description": "Convert text to speech using the configured TTS provider",
       "fields": {
+        "config_entry_id": {
+          "name": "Config Entry ID",
+          "description": "Specify when multiple HA AI config entries exist"
+        },
+        "subentry_id": {
+          "name": "Subentry ID",
+          "description": "Specify which TTS subentry to use"
+        },
         "text": {
           "name": "Text",
           "description": "Text content to convert to speech"
         },
         "voice": {
           "name": "Voice",
-          "description": "Select Edge TTS voice, like zh-CN-XiaoxiaoNeural"
+          "description": "Voice name for the configured provider"
         },
         "media_player_entity": {
           "name": "Media Player",
           "description": "Media player entity to play speech"
+        },
+        "stream": {
+          "name": "Stream",
+          "description": "Send audio chunks through the event bus"
+        },
+        "chunk_size": {
+          "name": "Chunk Size",
+          "description": "Audio chunk size for stream mode"
         }
       }
     },
     "stt_transcribe": {
-      "name": "Silicon Flow ASR Transcription",
-      "description": "Convert speech to text using Silicon Flow ASR",
+      "name": "STT Transcription",
+      "description": "Convert speech to text using the configured STT provider",
       "fields": {
+        "config_entry_id": {
+          "name": "Config Entry ID",
+          "description": "Specify when multiple HA AI config entries exist"
+        },
+        "subentry_id": {
+          "name": "Subentry ID",
+          "description": "Specify which STT subentry to use"
+        },
         "file": {
           "name": "Audio File",
           "description": "Path to audio file to transcribe (supports mp3, wav, flac formats)"
         },
         "model": {
           "name": "ASR Model",
-          "description": "Speech recognition model to use: FunAudioLLM/SenseVoiceSmall (recommended) or TeleAI/TeleSpeechASR"
+          "description": "Speech recognition model to use"
         }
       }
     }    

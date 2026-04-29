@@ -1,7 +1,7 @@
-"""Speech to Text support for AI Hub using Silicon Flow ASR.
+"""Speech to Text support for AI Hub.
 
 Features:
-- High-precision recognition using SenseVoice model
+- OpenAI-compatible transcription endpoint support
 - Automatic language detection (Chinese, English, Japanese, Korean)
 - Support for multiple audio formats (WAV/MP3/FLAC/OGG/WebM)
 - Dynamic timeout calculation based on audio size
@@ -10,6 +10,7 @@ Features:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from typing import Any
 
@@ -24,12 +25,14 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
-    CONF_API_KEY,
+    CONF_API_KEYS,
     CONF_CUSTOM_API_KEY,
+    CONF_PROVIDER_KEY,
+    CONF_STT_PROVIDER,
     CONF_STT_URL,
+    DEFAULT_STT_PROVIDER,
+    DEFAULT_STT_URL,
     DOMAIN,
-    SILICONFLOW_ASR_URL,
-    SILICONFLOW_STT_MODELS,
     STT_DEFAULT_MODEL,
     STT_MAX_AUDIO_SIZE,
     STT_MIN_AUDIO_SIZE,
@@ -123,12 +126,12 @@ def _extract_transcription(response_data: dict[str, Any]) -> str | None:
     if "transcription" in response_data:
         return response_data["transcription"]
 
-    # Silicon Flow API format
+    # Provider-specific API format
     if "code" in response_data:
         code = response_data.get("code")
         if code != 20000:
             error_msg = response_data.get("message", "Unknown API error")
-            _LOGGER.error("Silicon Flow API error: code=%s, message=%s", code, error_msg)
+            _LOGGER.error("STT API error: code=%s, message=%s", code, error_msg)
             raise HomeAssistantError(f"API error: {error_msg}")
         data = response_data.get("data")
         if data:
@@ -153,11 +156,11 @@ def _extract_transcription(response_data: dict[str, Any]) -> str | None:
 
 def _handle_timeout_error(exc: asyncio.TimeoutError) -> HomeAssistantError:
     """Convert timeout error to user-friendly HomeAssistantError."""
-    _LOGGER.error("Silicon Flow ASR request timeout: %s", exc)
+    _LOGGER.error("STT request timeout: %s", exc)
     exc_str = str(exc)
 
     if "SocketTimeoutError" in exc_str or "Timeout on reading data" in exc_str:
-        _LOGGER.warning("SiliconFlow server response delayed, speech recognition timeout")
+        _LOGGER.warning("STT server response delayed, speech recognition timeout")
         return HomeAssistantError(
             "Speech recognition service is temporarily busy. Please try again."
         )
@@ -184,7 +187,7 @@ async def async_setup_entry(
 
 
 class AIHubSTTEntity(SpeechToTextEntity, AIHubEntityBase):
-    """AI Hub speech-to-text entity using Silicon Flow ASR."""
+    """AI Hub speech-to-text entity."""
 
     _attr_has_entity_name = False
     _attr_supported_options = ["model", "language"]
@@ -199,13 +202,26 @@ class AIHubSTTEntity(SpeechToTextEntity, AIHubEntityBase):
             identifiers={(DOMAIN, subentry.subentry_id)},
             name=subentry.title,
             manufacturer="AI Hub",
-            model="Silicon Flow ASR",
+            model=str(subentry.data.get(CONF_STT_PROVIDER, DEFAULT_STT_PROVIDER)),
             entry_type=dr.DeviceEntryType.SERVICE,
         )
 
         custom_api_key = subentry.data.get(CONF_CUSTOM_API_KEY, "").strip()
-        self._api_key = custom_api_key if custom_api_key else config_entry.runtime_data
-        self._stt_url = subentry.data.get(CONF_STT_URL, SILICONFLOW_ASR_URL)
+        provider_key = str(subentry.data.get(CONF_PROVIDER_KEY, "") or "").strip()
+        mapped_key = ""
+        api_keys_raw = (
+            config_entry.options.get(CONF_API_KEYS)
+            or config_entry.data.get(CONF_API_KEYS, "")
+        )
+        if provider_key and isinstance(api_keys_raw, str) and api_keys_raw.strip():
+            try:
+                api_keys = json.loads(api_keys_raw)
+            except json.JSONDecodeError:
+                api_keys = {}
+            if isinstance(api_keys, dict):
+                mapped_key = str(api_keys.get(provider_key, "") or "").strip()
+        self._api_key = custom_api_key or mapped_key or config_entry.runtime_data
+        self._stt_url = subentry.data.get(CONF_STT_URL, DEFAULT_STT_URL)
 
     async def async_added_to_hass(self) -> None:
         """When entity is added to hass."""
@@ -287,15 +303,15 @@ class AIHubSTTEntity(SpeechToTextEntity, AIHubEntityBase):
         except HomeAssistantError:
             raise
         except Exception as exc:
-            _LOGGER.error("Silicon Flow ASR transcription failed: %s", exc, exc_info=True)
+            _LOGGER.error("STT transcription failed: %s", exc, exc_info=True)
             raise HomeAssistantError(f"ASR transcription failed: {exc}") from exc
 
     def _validate_api_key(self) -> None:
         """Validate that API key is configured."""
         if not self._api_key:
-            _LOGGER.error("Silicon Flow API key not configured")
+            _LOGGER.error("STT API key not configured")
             raise HomeAssistantError(
-                "Silicon Flow API key not configured. Please add the API key in the integration settings."
+                "STT API key is not configured. Please add a provider key or custom API key."
             )
 
     async def _collect_audio_stream(self, stream) -> bytes:
@@ -312,10 +328,10 @@ class AIHubSTTEntity(SpeechToTextEntity, AIHubEntityBase):
     def _validate_model(self) -> str:
         """Validate and return the STT model."""
         model = self.options.get("model", STT_DEFAULT_MODEL)
-        if model not in SILICONFLOW_STT_MODELS:
-            raise HomeAssistantError(f"Unsupported model: {model}")
+        if not isinstance(model, str) or not model.strip():
+            raise HomeAssistantError("STT model is not configured")
         _LOGGER.debug("Using STT model: %s", model)
-        return model
+        return model.strip()
 
     def _prepare_audio_data(self, audio_data: bytes, metadata: stt.SpeechMetadata) -> bytes:
         """Prepare audio data for API request."""
@@ -342,10 +358,10 @@ class AIHubSTTEntity(SpeechToTextEntity, AIHubEntityBase):
         return audio_data
 
     async def _send_asr_request(self, audio_data: bytes, model: str) -> dict[str, Any]:
-        """Send audio data to Silicon Flow ASR API with retry logic."""
+        """Send audio data to the STT API with retry logic."""
         timeout = _calculate_dynamic_timeout(len(audio_data))
 
-        _LOGGER.debug("Sending request to Silicon Flow ASR: model=%s, size=%d bytes", model, len(audio_data))
+        _LOGGER.debug("Sending request to STT API: model=%s, size=%d bytes", model, len(audio_data))
 
         if len(audio_data) >= 8:
             _LOGGER.debug("Audio header: %s", audio_data[:8].hex())
@@ -383,31 +399,31 @@ class AIHubSTTEntity(SpeechToTextEntity, AIHubEntityBase):
 
                 try:
                     response_data = await response.json()
-                    _LOGGER.debug("Silicon Flow ASR response: %s", response_data)
+                    _LOGGER.debug("STT API response: %s", response_data)
                     return response_data
                 except Exception as e:
-                    _LOGGER.error("Failed to parse Silicon Flow ASR response: %s", e)
+                    _LOGGER.error("Failed to parse STT API response: %s", e)
                     raise HomeAssistantError(f"Failed to parse response: {e}") from e
 
         try:
             return await async_retry(_make_request, config=STT_RETRY_CONFIG)
         except RetryError as exc:
-            _LOGGER.error("Silicon Flow ASR failed after %d retries: %s", exc.attempts, exc.last_exception)
+            _LOGGER.error("STT API failed after %d retries: %s", exc.attempts, exc.last_exception)
             if exc.last_exception:
                 if isinstance(exc.last_exception, asyncio.TimeoutError):
                     raise _handle_timeout_error(exc.last_exception) from exc
                 if isinstance(exc.last_exception, aiohttp.ClientConnectorError):
                     raise HomeAssistantError(
-                        "Cannot connect to Silicon Flow server after retries. Please check network."
+                        "Cannot connect to STT server after retries. Please check network."
                     ) from exc
             raise HomeAssistantError("Speech recognition failed after multiple retries.") from exc
         except asyncio.TimeoutError as exc:
             raise _handle_timeout_error(exc) from exc
         except aiohttp.ClientConnectorError as exc:
-            _LOGGER.error("Silicon Flow ASR connection failed: %s", exc)
-            raise HomeAssistantError("Cannot connect to Silicon Flow server. Please check network.") from exc
+            _LOGGER.error("STT API connection failed: %s", exc)
+            raise HomeAssistantError("Cannot connect to STT server. Please check network.") from exc
         except aiohttp.ClientError as exc:
-            _LOGGER.error("Silicon Flow ASR network error: %s", exc)
+            _LOGGER.error("STT API network error: %s", exc)
             raise HomeAssistantError("Speech recognition network request failed. Please try again.") from exc
 
     def _process_asr_response(self, response_data: dict[str, Any]) -> stt.SpeechResult:

@@ -19,7 +19,7 @@ from homeassistant.util import ulid
 from voluptuous_openapi import convert
 
 from .const import (
-    AI_HUB_CHAT_URL,
+    CONF_API_KEYS,
     CONF_CHAT_MODEL,
     CONF_CHAT_URL,
     CONF_CUSTOM_API_KEY,
@@ -31,6 +31,8 @@ from .const import (
     CONF_LONG_MEMORY_PINNED,
     CONF_LONG_MEMORY_UPDATE_TURNS,
     CONF_LLM_PROVIDER,
+    CONF_PROVIDER_KEY,
+    DEFAULT_CHAT_URL,
     DEFAULT_LLM_PROVIDER,
     DOMAIN,
     ERROR_GETTING_RESPONSE,
@@ -108,13 +110,29 @@ class _AIHubEntityMixin:
         self._attr_unique_id = subentry.subentry_id
         self._attr_name = subentry.title
 
-        # Get API key: use custom key if provided, otherwise use main key
+        # Get API key: custom key > named provider key > legacy main key.
         custom_key_raw = subentry.data.get(CONF_CUSTOM_API_KEY, "")
         custom_key = str(custom_key_raw).strip() if custom_key_raw else ""
+        provider_key = str(subentry.data.get(CONF_PROVIDER_KEY, "") or "").strip()
+        mapped_key = ""
+        api_keys_raw = ""
+        if hasattr(entry, "options") and entry.options.get(CONF_API_KEYS):
+            api_keys_raw = entry.options.get(CONF_API_KEYS)
+        elif hasattr(entry, "data"):
+            api_keys_raw = entry.data.get(CONF_API_KEYS, "")
+        if provider_key and isinstance(api_keys_raw, str) and api_keys_raw.strip():
+            try:
+                api_keys = json.loads(api_keys_raw)
+            except json.JSONDecodeError:
+                api_keys = {}
+            if isinstance(api_keys, dict):
+                mapped_key = str(api_keys.get(provider_key, "") or "").strip()
         main_key = entry.runtime_data if entry.runtime_data else ""
         # Ensure API key is always a string
         if custom_key:
             self._api_key = custom_key
+        elif mapped_key:
+            self._api_key = mapped_key
         elif isinstance(main_key, str) and main_key.strip():
             self._api_key = main_key
         else:
@@ -326,9 +344,9 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         if not source_text.strip():
             return ""
 
-        api_url = self.subentry.data.get(CONF_CHAT_URL) or AI_HUB_CHAT_URL
+        api_url = self.subentry.data.get(CONF_CHAT_URL) or DEFAULT_CHAT_URL
         if not isinstance(api_url, str) or not api_url.strip():
-            api_url = AI_HUB_CHAT_URL
+            api_url = DEFAULT_CHAT_URL
 
         model_config = self._get_model_config()
         model_name = model_config.get("model") or self.default_model
@@ -402,9 +420,9 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         if not new_summary:
             return old_summary[:max_chars]
 
-        api_url = self.subentry.data.get(CONF_CHAT_URL) or AI_HUB_CHAT_URL
+        api_url = self.subentry.data.get(CONF_CHAT_URL) or DEFAULT_CHAT_URL
         if not isinstance(api_url, str) or not api_url.strip():
-            api_url = AI_HUB_CHAT_URL
+            api_url = DEFAULT_CHAT_URL
 
         model_config = self._get_model_config()
         model_name = model_config.get("model") or self.default_model
@@ -614,7 +632,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         # Build provider config
         provider_config = {
             "api_key": self._api_key,
-            "base_url": options.get(CONF_CHAT_URL) or AI_HUB_CHAT_URL,
+            "base_url": options.get(CONF_CHAT_URL) or DEFAULT_CHAT_URL,
             "model": model_name,
         }
 

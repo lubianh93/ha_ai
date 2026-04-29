@@ -59,21 +59,40 @@ DOMAIN: Final = "ha_ai"
 
 # API Endpoints
 API_URLS: Final = {
-    "chat": "https://api.siliconflow.cn/v1/chat/completions",
-    "image": "https://api.siliconflow.cn/v1/images/generations",
+    "openai_chat": "https://api.openai.com/v1/chat/completions",
+    "openai_image": "https://api.openai.com/v1/images/generations",
+    "openai_tts": "https://api.openai.com/v1/audio/speech",
+    "openai_stt": "https://api.openai.com/v1/audio/transcriptions",
+    "siliconflow_chat": "https://api.siliconflow.cn/v1/chat/completions",
+    "siliconflow_image": "https://api.siliconflow.cn/v1/images/generations",
     "siliconflow_base": "https://api.siliconflow.cn/v1",
     "siliconflow_asr": "https://api.siliconflow.cn/v1/audio/transcriptions",
+    "aliyun_chat": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+    "aliyun_tts_realtime": "wss://dashscope.aliyuncs.com/api-ws/v1/realtime?model=qwen-tts-realtime",
+    "aliyun_stt": "https://dashscope.aliyuncs.com/compatible-mode/v1/audio/transcriptions",
+    "deepseek_chat": "https://api.deepseek.com/chat/completions",
+    "ollama_chat": "http://localhost:11434/v1/chat/completions",
 }
 
-AI_HUB_CHAT_URL: Final = API_URLS["chat"]
-AI_HUB_IMAGE_GEN_URL: Final = API_URLS["image"]
+DEFAULT_CHAT_URL: Final = API_URLS["openai_chat"]
+DEFAULT_IMAGE_URL: Final = API_URLS["openai_image"]
+DEFAULT_TTS_URL: Final = API_URLS["openai_tts"]
+DEFAULT_STT_URL: Final = API_URLS["openai_stt"]
+OPENAI_COMPATIBLE_CHAT_URL: Final = API_URLS["openai_chat"]
+OPENAI_COMPATIBLE_IMAGE_URL: Final = API_URLS["openai_image"]
+OPENAI_COMPATIBLE_TTS_URL: Final = API_URLS["openai_tts"]
+OPENAI_COMPATIBLE_STT_URL: Final = API_URLS["openai_stt"]
 SILICONFLOW_API_BASE: Final = API_URLS["siliconflow_base"]
 SILICONFLOW_ASR_URL: Final = API_URLS["siliconflow_asr"]
+# Legacy aliases kept so existing YAML/scripts do not break.
+AI_HUB_CHAT_URL: Final = API_URLS["siliconflow_chat"]
+AI_HUB_IMAGE_GEN_URL: Final = API_URLS["siliconflow_image"]
 
 CONF_STT_URL: Final = "stt_url"
 
 SUBENTRY_CONVERSATION: Final = "conversation"
 SUBENTRY_AI_TASK: Final = "ai_task_data"
+SUBENTRY_TTS: Final = "tts"
 SUBENTRY_STT: Final = "stt"
 SUBENTRY_TRANSLATION: Final = "translation"
 # =============================================================================
@@ -154,15 +173,21 @@ STT_MAX_FILE_SIZE_MB: Final = AUDIO_LIMITS["stt_max_file_size_mb"]
 
 # API Keys
 CONF_API_KEY: Final = "api_key"
+CONF_API_KEYS: Final = "api_keys"
 CONF_CUSTOM_API_KEY: Final = "custom_api_key"
+CONF_PROVIDER_KEY: Final = "provider_key"
+CONF_PROVIDER_PRESET: Final = "provider_preset"
+CONF_SUBENTRY_ID: Final = "subentry_id"
 
 # Model Configuration
 CONF_CHAT_MODEL: Final = "chat_model"
 CONF_CHAT_URL: Final = "chat_url"
 CONF_IMAGE_MODEL: Final = "image_model"
 CONF_IMAGE_URL: Final = "image_url"
+CONF_MODEL_CATALOG: Final = "model_catalog"
 CONF_STT_MODEL: Final = "model"
 CONF_STT_FILE: Final = "file"
+CONF_STT_PROVIDER: Final = "stt_provider"
 CONF_LLM_PROVIDER: Final = "llm_provider"
 # LLM Parameters
 CONF_MAX_TOKENS: Final = "max_tokens"
@@ -181,6 +206,9 @@ CONF_LONG_MEMORY_GLOBAL: Final = "long_memory_global"
 CONF_LONG_MEMORY_CONVERSATION: Final = "long_memory_conversation"
 
 # TTS Configuration
+CONF_TTS_PROVIDER: Final = "tts_provider"
+CONF_TTS_MODEL: Final = "tts_model"
+CONF_TTS_URL: Final = "tts_url"
 CONF_TTS_VOICE: Final = "voice"
 CONF_TTS_LANG: Final = "lang"
 
@@ -190,7 +218,7 @@ CONF_TTS_LANG: Final = "lang"
 
 RECOMMENDED: Final[dict[str, Any]] = {
     # Conversation
-    "chat_model": "Qwen/Qwen3-8B",
+    "chat_model": "gpt-4o-mini",
     "temperature": 0.3,
     "top_p": 0.5,
     "top_k": 1,
@@ -201,17 +229,17 @@ RECOMMENDED: Final[dict[str, Any]] = {
     "long_memory_max_chars": 1200,
     "long_memory_pinned": "",
     # AI Task
-    "ai_task_model": "Qwen/Qwen3-8B",
+    "ai_task_model": "gpt-4o-mini",
     "ai_task_temperature": 0.95,
     "ai_task_top_p": 0.7,
     "ai_task_max_tokens": 2000,
-    # Image (Free models on SiliconFlow)
-    "image_model": "Kwai-Kolors/Kolors",
-    "image_analysis_model": "THUDM/GLM-4.1V-9B-Thinking",
+    # Image
+    "image_model": "gpt-image-1",
+    "image_analysis_model": "gpt-4o-mini",
     # TTS
     "tts_voice": "zh-CN-XiaoxiaoNeural",
     # STT
-    "stt_model": "FunAudioLLM/SenseVoiceSmall",
+    "stt_model": "whisper-1",
 }
 
 RECOMMENDED_CHAT_MODEL: Final = RECOMMENDED["chat_model"]
@@ -237,6 +265,77 @@ LLM_PROVIDER_OPTIONS: Final = [
     "anthropic_compatible",
 ]
 DEFAULT_LLM_PROVIDER: Final = "openai_compatible"
+TTS_PROVIDER_OPTIONS: Final = [
+    "edge_tts",
+    "openai_compatible_tts",
+    "aliyun_bailian_tts",
+]
+DEFAULT_TTS_PROVIDER: Final = "edge_tts"
+ALIYUN_BAILIAN_TTS_PROVIDER: Final = "aliyun_bailian_tts"
+STT_PROVIDER_OPTIONS: Final = [
+    "openai_compatible_stt",
+]
+DEFAULT_STT_PROVIDER: Final = "openai_compatible_stt"
+
+PROVIDER_PRESETS: Final[dict[str, dict[str, Any]]] = {
+    "custom": {
+        "label": "Custom",
+    },
+    "openai": {
+        "label": "OpenAI compatible",
+        CONF_PROVIDER_KEY: "openai",
+        CONF_CHAT_URL: DEFAULT_CHAT_URL,
+        CONF_CHAT_MODEL: RECOMMENDED_CHAT_MODEL,
+        CONF_IMAGE_URL: DEFAULT_IMAGE_URL,
+        CONF_IMAGE_MODEL: RECOMMENDED_IMAGE_MODEL,
+        CONF_TTS_PROVIDER: "openai_compatible_tts",
+        CONF_TTS_URL: DEFAULT_TTS_URL,
+        CONF_TTS_MODEL: "tts-1",
+        CONF_STT_PROVIDER: DEFAULT_STT_PROVIDER,
+        CONF_STT_URL: DEFAULT_STT_URL,
+        CONF_STT_MODEL: "whisper-1",
+    },
+    "siliconflow": {
+        "label": "SiliconFlow",
+        CONF_PROVIDER_KEY: "siliconflow",
+        CONF_CHAT_URL: API_URLS["siliconflow_chat"],
+        CONF_CHAT_MODEL: "Qwen/Qwen3-8B",
+        CONF_IMAGE_URL: API_URLS["siliconflow_image"],
+        CONF_IMAGE_MODEL: "Kwai-Kolors/Kolors",
+        CONF_STT_PROVIDER: DEFAULT_STT_PROVIDER,
+        CONF_STT_URL: SILICONFLOW_ASR_URL,
+        CONF_STT_MODEL: "FunAudioLLM/SenseVoiceSmall",
+    },
+    "aliyun": {
+        "label": "Alibaba Cloud Bailian",
+        CONF_PROVIDER_KEY: "aliyun",
+        CONF_CHAT_URL: API_URLS["aliyun_chat"],
+        CONF_CHAT_MODEL: "qwen-plus",
+        CONF_TTS_PROVIDER: "aliyun_bailian_tts",
+        CONF_TTS_URL: API_URLS["aliyun_tts_realtime"],
+        CONF_TTS_MODEL: "qwen-tts-realtime",
+        CONF_TTS_VOICE: "Cherry",
+        CONF_STT_PROVIDER: DEFAULT_STT_PROVIDER,
+        CONF_STT_URL: API_URLS["aliyun_stt"],
+        CONF_STT_MODEL: "paraformer-realtime-v2",
+    },
+    "deepseek": {
+        "label": "DeepSeek",
+        CONF_PROVIDER_KEY: "deepseek",
+        CONF_CHAT_URL: API_URLS["deepseek_chat"],
+        CONF_CHAT_MODEL: "deepseek-chat",
+    },
+    "ollama": {
+        "label": "Ollama local",
+        CONF_PROVIDER_KEY: "",
+        CONF_CHAT_URL: API_URLS["ollama_chat"],
+        CONF_CHAT_MODEL: "llama3.1",
+    },
+}
+PROVIDER_PRESET_OPTIONS: Final = [
+    {"value": key, "label": str(value.get("label", key))}
+    for key, value in PROVIDER_PRESETS.items()
+]
 
 # =============================================================================
 # Default Names
@@ -289,9 +388,13 @@ TTS_DEFAULT_VOICES: Final = {
 # Model Lists
 # =============================================================================
 
-# Chat models (SiliconFlow)
+# Chat model examples
 AI_HUB_CHAT_MODELS: Final = [
-    # Qwen series (recommended)
+    "gpt-4o-mini",
+    "gpt-4o",
+    "gpt-4.1-mini",
+    "gpt-4.1",
+    # Qwen series
     "Qwen/Qwen3-8B",  # Free (recommended)
     "Qwen/Qwen2.5-7B-Instruct",
     "Qwen/Qwen2.5-72B-Instruct",
@@ -313,20 +416,20 @@ AI_HUB_CHAT_MODELS: Final = [
     "mistralai/Mistral-7B-Instruct-v0.3",
     "THUDM/glm-4-9b-chat",
 ]
+CHAT_MODEL_EXAMPLES: Final = AI_HUB_CHAT_MODELS
 
 # Image generation models
 AI_HUB_IMAGE_MODELS: Final = [
-    "Kwai-Kolors/Kolors",  # Free (recommended)
-    "black-forest-labs/FLUX.1-schnell",
-    "black-forest-labs/FLUX.1-dev",
-    "black-forest-labs/FLUX-pro",
-    "stabilityai/stable-diffusion-3-5-large",
-    "stabilityai/stable-diffusion-3-medium",
+    "gpt-image-1",
+    "Kwai-Kolors/Kolors",
 ]
+IMAGE_MODEL_EXAMPLES: Final = AI_HUB_IMAGE_MODELS
 
 # Vision models (support image analysis)
 VISION_MODELS: Final = [
-    "THUDM/GLM-4.1V-9B-Thinking",  # Free (recommended)
+    "gpt-4o-mini",
+    "gpt-4o",
+    "THUDM/GLM-4.1V-9B-Thinking",
     "Qwen/Qwen2-VL-72B-Instruct",
     "Qwen/Qwen2-VL-7B-Instruct",
     "meta-llama/Llama-3.2-11B-Vision-Instruct",
@@ -343,16 +446,21 @@ IMAGE_SIZES: Final = [
     "720x1440",
 ]
 
-# SiliconFlow STT models
+# STT model examples
 SILICONFLOW_STT_MODELS: Final = [
+    "whisper-1",
+    "gpt-4o-mini-transcribe",
+    "gpt-4o-transcribe",
     "TeleAI/TeleSpeechASR",
-    "FunAudioLLM/SenseVoiceSmall",  # Recommended
+    "FunAudioLLM/SenseVoiceSmall",
 ]
+STT_MODEL_EXAMPLES: Final = SILICONFLOW_STT_MODELS
 
 # SiliconFlow audio formats
 SILICONFLOW_STT_AUDIO_FORMATS: Final = [
     "mp3", "wav", "flac", "m4a", "ogg", "webm",
 ]
+STT_AUDIO_FORMATS: Final = SILICONFLOW_STT_AUDIO_FORMATS
 
 
 # =============================================================================
@@ -396,11 +504,12 @@ SERVICE_STT_TRANSCRIBE: Final = SERVICES["stt_transcribe"]
 # =============================================================================
 
 RECOMMENDED_CONVERSATION_OPTIONS: Final = {
-    CONF_RECOMMENDED: True,
+    CONF_RECOMMENDED: False,
     CONF_LLM_HASS_API: LLM_API_ASSIST,
     CONF_PROMPT: DEFAULT_INSTRUCTIONS_PROMPT,
     CONF_CHAT_MODEL: RECOMMENDED_CHAT_MODEL,
-    CONF_CHAT_URL: AI_HUB_CHAT_URL,
+    CONF_CHAT_URL: DEFAULT_CHAT_URL,
+    CONF_PROVIDER_PRESET: "custom",
     CONF_LLM_PROVIDER: DEFAULT_LLM_PROVIDER,
     CONF_TEMPERATURE: RECOMMENDED_TEMPERATURE,
     CONF_TOP_P: RECOMMENDED_TOP_P,
@@ -414,24 +523,31 @@ RECOMMENDED_CONVERSATION_OPTIONS: Final = {
 }
 
 RECOMMENDED_AI_TASK_OPTIONS: Final = {
-    CONF_RECOMMENDED: True,
+    CONF_RECOMMENDED: False,
     CONF_IMAGE_MODEL: RECOMMENDED_IMAGE_MODEL,
-    CONF_IMAGE_URL: AI_HUB_IMAGE_GEN_URL,
+    CONF_IMAGE_URL: DEFAULT_IMAGE_URL,
+    CONF_PROVIDER_PRESET: "custom",
     CONF_TEMPERATURE: RECOMMENDED_AI_TASK_TEMPERATURE,
     CONF_TOP_P: RECOMMENDED_AI_TASK_TOP_P,
     CONF_MAX_TOKENS: RECOMMENDED_AI_TASK_MAX_TOKENS,
 }
 
 RECOMMENDED_TTS_OPTIONS: Final = {
-    CONF_RECOMMENDED: True,
+    CONF_RECOMMENDED: False,
+    CONF_TTS_PROVIDER: DEFAULT_TTS_PROVIDER,
+    CONF_TTS_MODEL: "",
+    CONF_TTS_URL: DEFAULT_TTS_URL,
+    CONF_PROVIDER_PRESET: "custom",
     CONF_TTS_VOICE: TTS_DEFAULT_VOICE,
     CONF_TTS_LANG: TTS_DEFAULT_LANG,
 }
 
 RECOMMENDED_STT_OPTIONS: Final = {
-    CONF_RECOMMENDED: True,
+    CONF_RECOMMENDED: False,
+    CONF_STT_PROVIDER: DEFAULT_STT_PROVIDER,
     CONF_STT_MODEL: RECOMMENDED_STT_MODEL,
-    CONF_STT_URL: SILICONFLOW_ASR_URL,
+    CONF_STT_URL: DEFAULT_STT_URL,
+    CONF_PROVIDER_PRESET: "custom",
 }
 
 

@@ -16,20 +16,25 @@ import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 
 from ..const import (
+    CONF_SUBENTRY_ID,
     CONF_STT_FILE,
-    EDGE_TTS_VOICES,
     IMAGE_SIZES,
     RECOMMENDED_IMAGE_ANALYSIS_MODEL,
     RECOMMENDED_IMAGE_MODEL,
     RECOMMENDED_MAX_TOKENS,
     RECOMMENDED_STT_MODEL,
     RECOMMENDED_TEMPERATURE,
-    SILICONFLOW_STT_MODELS,
     TTS_DEFAULT_VOICE,
 )
 
+SERVICE_TARGET_SCHEMA = {
+    vol.Optional("config_entry_id"): cv.string,
+    vol.Optional(CONF_SUBENTRY_ID): cv.string,
+}
+
 # Schema for image analysis service
 IMAGE_ANALYZER_SCHEMA = {
+    **SERVICE_TARGET_SCHEMA,
     vol.Optional("image_file"): cv.string,
     vol.Optional("image_entity"): cv.entity_id,
     vol.Required("message"): cv.string,
@@ -41,28 +46,33 @@ IMAGE_ANALYZER_SCHEMA = {
 
 # Schema for image generation service
 IMAGE_GENERATOR_SCHEMA = {
+    **SERVICE_TARGET_SCHEMA,
     vol.Required("prompt"): cv.string,
     vol.Optional("size", default="1024x1024"): vol.In(IMAGE_SIZES),
     vol.Optional("model", default=RECOMMENDED_IMAGE_MODEL): cv.string,
 }
 
-# Schema for Edge TTS service
+# Schema for TTS service
 TTS_SCHEMA = {
+    **SERVICE_TARGET_SCHEMA,
     vol.Required("text"): cv.string,
-    vol.Optional("voice", default=TTS_DEFAULT_VOICE): vol.In(list(EDGE_TTS_VOICES.keys())),
+    vol.Optional("voice", default=TTS_DEFAULT_VOICE): cv.string,
     vol.Optional("media_player_entity"): cv.entity_id,
-}
-
-# Schema for streaming Edge TTS service
-TTS_STREAM_SCHEMA = {
-    vol.Required("text"): cv.string,
-    vol.Optional("voice", default=TTS_DEFAULT_VOICE): vol.In(list(EDGE_TTS_VOICES.keys())),
+    vol.Optional("stream", default=False): cv.boolean,
     vol.Optional("chunk_size", default=4096): vol.Coerce(int),
 }
 
-# Schema for Silicon Flow STT service
-STT_SCHEMA = {
-    vol.Required(CONF_STT_FILE): cv.string,
-    vol.Optional("model", default=RECOMMENDED_STT_MODEL): vol.In(SILICONFLOW_STT_MODELS),
+# Schema for streaming TTS service
+TTS_STREAM_SCHEMA = {
+    **SERVICE_TARGET_SCHEMA,
+    vol.Required("text"): cv.string,
+    vol.Optional("voice", default=TTS_DEFAULT_VOICE): cv.string,
+    vol.Optional("chunk_size", default=4096): vol.Coerce(int),
 }
 
+# Schema for STT service
+STT_SCHEMA = {
+    **SERVICE_TARGET_SCHEMA,
+    vol.Required(CONF_STT_FILE): cv.string,
+    vol.Optional("model", default=RECOMMENDED_STT_MODEL): cv.string,
+}

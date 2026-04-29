@@ -55,7 +55,8 @@ class LocalIntentHandler:
         self.hass = hass
         self._config = None  # 延迟加载
         self._local_config = None
-
+        self._local_sentence_patterns: list[re.Pattern[str]] | None = None
+        
     @property
     def local_config(self):
         """延迟加载本地意图配置."""
@@ -85,7 +86,7 @@ class LocalIntentHandler:
         """判断是否应该使用本地意图处理。
 
         本地处理只接管明确的、命令式的全局控制。
-        讨论、纠错、抱怨、反问，即使包含全局关键词，也不执行。
+        如果配置了 local_sentence_templates，还必须命中句式白名单。
         """
         if not self.local_config:
             return False
@@ -95,17 +96,277 @@ class LocalIntentHandler:
             return False
 
         decision = classify_global_control_command(text, global_config)
+        if not decision.should_execute_locally:
+            _LOGGER.debug(
+                "Local intent rejected by classifier: text=%r, kind=%s, reason=%s",
+                text,
+                decision.kind,
+                decision.reason,
+            )
+            return False
+
+        # 如果配置了句式白名单，则必须命中白名单。
+        # 如果暂时没配置，则保留 classifier 的结果，避免一升级就把本地控制全关掉。
+        if self._has_local_sentence_templates():
+            matched = self._matches_local_sentence_template(text.lower().strip())
+            _LOGGER.debug(
+                "Local intent sentence-template gate: text=%r, matched=%s",
+                text,
+                matched,
+            )
+            return matched
 
         _LOGGER.debug(
-            "Local intent classifier: text=%r, kind=%s, execute=%s, reason=%s",
+            "Local intent accepted by classifier without sentence templates: text=%r, reason=%s",
             text,
-            decision.kind,
-            decision.should_execute_locally,
             decision.reason,
         )
+        return True
+    def _has_local_sentence_templates(self) -> bool:
+        """Return whether local sentence templates are configured."""
+        config = self.config or {}
+        templates = config.get("local_sentence_templates", [])
+        return isinstance(templates, list) and bool(templates)
 
-        return decision.should_execute_locally
 
+    def _matches_local_sentence_template(self, text_lower: str) -> bool:
+        """Return whether text matches any configured local sentence template."""
+        patterns = self._get_local_sentence_patterns()
+        if not patterns:
+            return True
+
+        normalized_text = re.sub(r"\s+", " ", text_lower).strip()
+        return any(pattern.fullmatch(normalized_text) for pattern in patterns)
+
+
+    def _get_local_sentence_patterns(self) -> list[re.Pattern[str]]:
+        """Compile local sentence templates into regex patterns once."""
+        if self._local_sentence_patterns is not None:
+            return self._local_sentence_patterns
+
+        config = self.config or {}
+        templates = config.get("local_sentence_templates", [])
+
+        if not isinstance(templates, list):
+            self._local_sentence_patterns = []
+            return self._local_sentence_patterns
+
+        patterns: list[re.Pattern[str]] = []
+
+        for template in templates:
+            if not isinstance(template, str) or not template.strip():
+                continue
+
+            try:
+                regex = self._template_to_regex(template, config)
+                patterns.append(re.compile(regex))
+            except ValueError as err:
+                _LOGGER.debug("Invalid local sentence template %r: %s", template, err)
+                continue
+            except re.error as err:
+                _LOGGER.debug("Invalid local sentence regex from template %r: %s", template, err)
+                continue
+
+        self._local_sentence_patterns = patterns
+        return self._local_sentence_patterns
+
+
+    def _template_to_regex(
+        self,
+        template: str,
+        config: dict[str, Any],
+        seen_tokens: set[str] | None = None,
+    ) -> str:
+        """Convert a sentence template into an anchored regex."""
+        seen_tokens = set() if seen_tokens is None else set(seen_tokens)
+
+        def _convert(fragment: str) -> str:
+            parts: list[str] = []
+            i = 0
+
+            while i < len(fragment):
+                char = fragment[i]
+
+                if char == "[":
+                    end = self._find_matching(fragment, i, "[", "]")
+                    inner = _convert(fragment[i + 1:end])
+                    parts.append(f"(?:{inner})?")
+                    i = end + 1
+                    continue
+
+                if char == "<":
+                    end = self._find_matching(fragment, i, "<", ">")
+                    token = fragment[i + 1:end].strip()
+                    parts.append(self._expand_template_token(token, config, seen_tokens=seen_tokens))
+                    i = end + 1
+                    continue
+
+                if char == "{":
+                    end = self._find_matching(fragment, i, "{", "}")
+                    token = fragment[i + 1:end].split(":", 1)[0].strip()
+                    parts.append(
+                        self._expand_template_token(
+                            token,
+                            config,
+                            fallback=".+?",
+                            seen_tokens=seen_tokens,
+                        )
+                    )
+                    i = end + 1
+                    continue
+
+                if char.isspace():
+                    parts.append(r"\s*")
+                elif char in "()|":
+                    parts.append(char)
+                else:
+                    parts.append(re.escape(char))
+
+                i += 1
+
+            return "".join(parts)
+
+        body = _convert(template.strip())
+        return rf"^\s*{body}[\s。！？?!.，,:：]*$"
+
+
+    def _expand_template_token(
+        self,
+        token: str,
+        config: dict[str, Any],
+        fallback: str = ".+?",
+        seen_tokens: set[str] | None = None,
+    ) -> str:
+        """Expand a rule/list token into regex."""
+        seen_tokens = set() if seen_tokens is None else set(seen_tokens)
+
+        local_intents = config.get("local_intents", {}) if isinstance(config, dict) else {}
+        global_config = local_intents.get("GlobalDeviceControl", {}) if isinstance(local_intents, dict) else {}
+
+        # Built-in aliases for local global-control templates.
+        builtin_values: dict[str, list[str]] = {
+            "turn_on": global_config.get("on_keywords", []),
+            "turn_off": global_config.get("off_keywords", []),
+            "global_scope": global_config.get("global_keywords", []),
+            "parameter": (
+                global_config.get("param_keywords", [])
+                + global_config.get("brightness_keywords", [])
+                + global_config.get("volume_keywords", [])
+                + global_config.get("color_keywords", [])
+                + global_config.get("temperature_keywords", [])
+            ),
+        }
+
+        if token == "device_type":
+            builtin_values[token] = self._get_device_type_template_values(global_config, config)
+
+        if token in builtin_values:
+            return self._values_to_regex(builtin_values[token], fallback)
+
+        expansion_rules = config.get("expansion_rules", {}) if isinstance(config, dict) else {}
+        if token in expansion_rules:
+            if token in seen_tokens:
+                return fallback
+
+            next_seen = set(seen_tokens)
+            next_seen.add(token)
+
+            rule = expansion_rules[token]
+            if isinstance(rule, str):
+                return f"(?:{self._template_to_regex_fragment(rule, config, next_seen)})"
+
+            if isinstance(rule, list):
+                return self._values_to_regex([str(item) for item in rule], fallback)
+
+        lists_config = config.get("lists", {}) if isinstance(config, dict) else {}
+        list_config = lists_config.get(token)
+
+        values: list[str] = []
+        if isinstance(list_config, dict):
+            raw_values = list_config.get("values", [])
+            if isinstance(raw_values, list):
+                values = [str(item) for item in raw_values]
+        elif isinstance(list_config, list):
+            values = [str(item) for item in list_config]
+
+        return self._values_to_regex(values, fallback)
+
+
+    def _template_to_regex_fragment(
+        self,
+        fragment: str,
+        config: dict[str, Any],
+        seen_tokens: set[str] | None = None,
+    ) -> str:
+        """Convert a reusable expansion-rule fragment to regex body."""
+        regex = self._template_to_regex(fragment, config, seen_tokens)
+
+        prefix = r"^\s*"
+        suffix = r"[\s。！？?!.，,:：]*$"
+
+        if regex.startswith(prefix):
+            regex = regex[len(prefix):]
+        if regex.endswith(suffix):
+            regex = regex[: -len(suffix)]
+
+        return regex
+
+
+    def _find_matching(self, text: str, start: int, opening: str, closing: str) -> int:
+        """Find the matching closing character for a template token."""
+        depth = 0
+        for index in range(start, len(text)):
+            if text[index] == opening:
+                depth += 1
+            elif text[index] == closing:
+                depth -= 1
+                if depth == 0:
+                    return index
+
+        raise ValueError(f"Unmatched {opening!r} in template: {text}")
+
+
+    def _values_to_regex(self, values: list[str], fallback: str = ".+?") -> str:
+        """Convert a list of literal values to regex."""
+        cleaned = sorted({value.strip() for value in values if value and value.strip()}, key=len, reverse=True)
+        if not cleaned:
+            return fallback
+        return "(?:" + "|".join(re.escape(value) for value in cleaned) + ")"
+
+
+    def _get_device_type_template_values(
+        self,
+        global_config: dict[str, Any],
+        config: dict[str, Any],
+    ) -> list[str]:
+        """Return device-type words allowed in local sentence templates."""
+        values: list[str] = []
+
+        device_type_keywords = global_config.get("device_type_keywords", {})
+        if isinstance(device_type_keywords, dict):
+            values.extend(str(keyword) for keyword in device_type_keywords.keys())
+
+        lists_config = config.get("lists", {}) if isinstance(config, dict) else {}
+        for list_name in (
+            "light_names",
+            "switch_names",
+            "climate_names",
+            "fan_names",
+            "cover_names",
+            "media_names",
+            "media_player_names",
+            "lock_names",
+            "vacuum_names",
+            "valve_names",
+            "camera_names",
+        ):
+            list_config = lists_config.get(list_name)
+            if isinstance(list_config, dict):
+                raw_values = list_config.get("values", [])
+                if isinstance(raw_values, list):
+                    values.extend(str(item) for item in raw_values)
+
+        return values
     async def handle(self, text: str, language: str = "zh-CN"):
         """处理本地意图."""
         if not self.should_handle(text):
@@ -165,24 +426,24 @@ class LocalIntentHandler:
             lists_config = config.get('lists', {}) if config else {}
 
             domain_mapping = {
-                'light': 'light_names',
-                'switch': 'switch_names',
-                'climate': 'climate_names',
-                'fan': 'fan_names',
-                'cover': 'cover_names',
-                'media_player': 'media_player_names',
-                'lock': 'lock_names',
-                'vacuum': 'vacuum_names',
-                'valve': 'valve_names'
+                'light': ('light_names',),
+                'switch': ('switch_names',),
+                'climate': ('climate_names',),
+                'fan': ('fan_names',),
+                'cover': ('cover_names',),
+                'media_player': ('media_names', 'media_player_names'),
+                'lock': ('lock_names',),
+                'vacuum': ('vacuum_names',),
+                'valve': ('valve_names',),
+                'camera': ('camera_names',),
             }
 
-            for domain, list_name in domain_mapping.items():
-                keywords_list = lists_config.get(list_name, {}).get('values', [])
-                if keywords_list:
-                    for keyword in keywords_list:
-                        if keyword in text_lower:
-                            device_types.append(domain)
-                            break
+            for domain, list_names in domain_mapping.items():
+                for list_name in list_names:
+                    keywords_list = lists_config.get(list_name, {}).get('values', [])
+                    if keywords_list and any(keyword in text_lower for keyword in keywords_list):
+                        device_types.append(domain)
+                        break
         else:
             for keyword, domain in device_type_keywords.items():
                 if keyword in text_lower:

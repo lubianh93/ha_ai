@@ -27,7 +27,7 @@ except ModuleNotFoundError:  # pragma: no cover - used only in lightweight test 
 
     Platform = None  # type: ignore[assignment]
 
-from .const import AI_HUB_CHAT_URL, DOMAIN
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -142,75 +142,42 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Migrate from version 1 to version 2
         # Version 2 uses subentries for conversation and ai_task
         new_data = {**entry.data}
-        new_options = {**entry.options}
-
-        # Create default subentries
-        from homeassistant.helpers import llm
 
         from .const import (
-            CONF_CHAT_MODEL,
-            CONF_LLM_HASS_API,
-            CONF_MAX_TOKENS,
-            CONF_PROMPT,
-            CONF_RECOMMENDED,
-            CONF_TEMPERATURE,
-            CONF_TOP_P,
             DEFAULT_AI_TASK_NAME,
             DEFAULT_CONVERSATION_NAME,
-            RECOMMENDED_AI_TASK_MAX_TOKENS,
-            RECOMMENDED_AI_TASK_MODEL,
-            RECOMMENDED_AI_TASK_TEMPERATURE,
-            RECOMMENDED_AI_TASK_TOP_P,
-            RECOMMENDED_CHAT_MODEL,
-            RECOMMENDED_MAX_TOKENS,
-            RECOMMENDED_TEMPERATURE,
-            RECOMMENDED_TOP_P,
+            DEFAULT_STT_NAME,
+            DEFAULT_TTS_NAME,
+            RECOMMENDED_AI_TASK_OPTIONS,
+            RECOMMENDED_CONVERSATION_OPTIONS,
+            RECOMMENDED_STT_OPTIONS,
+            RECOMMENDED_TTS_OPTIONS,
         )
-
-        # Create conversation subentry from old options
-        conversation_data = {
-            CONF_RECOMMENDED: new_options.get(CONF_RECOMMENDED, True),
-            CONF_CHAT_MODEL: new_options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL),
-            CONF_TEMPERATURE: new_options.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE),
-            CONF_TOP_P: new_options.get(CONF_TOP_P, RECOMMENDED_TOP_P),
-            CONF_MAX_TOKENS: new_options.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS),
-            CONF_PROMPT: new_options.get(CONF_PROMPT, llm.DEFAULT_INSTRUCTIONS_PROMPT),
-            CONF_LLM_HASS_API: new_options.get(CONF_LLM_HASS_API, [llm.LLM_API_ASSIST]),
-        }
-
-        # Create AI task subentry with defaults
-        ai_task_data = {
-            CONF_RECOMMENDED: True,
-            CONF_CHAT_MODEL: RECOMMENDED_AI_TASK_MODEL,
-            CONF_TEMPERATURE: RECOMMENDED_AI_TASK_TEMPERATURE,
-            CONF_TOP_P: RECOMMENDED_AI_TASK_TOP_P,
-            CONF_MAX_TOKENS: RECOMMENDED_AI_TASK_MAX_TOKENS,
-        }
 
         hass.config_entries.async_update_entry(
             entry,
             data=new_data,
             options={},
             version=2,
-            minor_version=2,
+            minor_version=3,
         )
 
-        # Add subentries
-        conversation_subentry = ConfigSubentry(
-            data=conversation_data,
-            subentry_type="conversation",
-            title=DEFAULT_CONVERSATION_NAME,
-            unique_id=None,
+        defaults = (
+            ("conversation", DEFAULT_CONVERSATION_NAME, RECOMMENDED_CONVERSATION_OPTIONS),
+            ("ai_task_data", DEFAULT_AI_TASK_NAME, RECOMMENDED_AI_TASK_OPTIONS),
+            ("tts", DEFAULT_TTS_NAME, RECOMMENDED_TTS_OPTIONS),
+            ("stt", DEFAULT_STT_NAME, RECOMMENDED_STT_OPTIONS),
         )
-        hass.config_entries.async_add_subentry(entry, conversation_subentry)
-
-        ai_task_subentry = ConfigSubentry(
-            data=ai_task_data,
-            subentry_type="ai_task_data",
-            title=DEFAULT_AI_TASK_NAME,
-            unique_id=None,
-        )
-        hass.config_entries.async_add_subentry(entry, ai_task_subentry)
+        for subentry_type, title, data in defaults:
+            hass.config_entries.async_add_subentry(
+                entry,
+                ConfigSubentry(
+                    data=dict(data),
+                    subentry_type=subentry_type,
+                    title=title,
+                    unique_id=None,
+                ),
+            )
 
         _LOGGER.debug("Migration to version %s.%s successful", entry.version, entry.minor_version)
 
@@ -237,6 +204,41 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             minor_version=2,
         )
 
+        _LOGGER.debug("Migration to version %s.%s successful", entry.version, entry.minor_version)
+
+    if entry.version == 2 and entry.minor_version < 3:
+        from .const import (
+            DEFAULT_AI_TASK_NAME,
+            DEFAULT_CONVERSATION_NAME,
+            DEFAULT_STT_NAME,
+            DEFAULT_TTS_NAME,
+            RECOMMENDED_AI_TASK_OPTIONS,
+            RECOMMENDED_CONVERSATION_OPTIONS,
+            RECOMMENDED_STT_OPTIONS,
+            RECOMMENDED_TTS_OPTIONS,
+        )
+
+        defaults = {
+            "conversation": (DEFAULT_CONVERSATION_NAME, RECOMMENDED_CONVERSATION_OPTIONS),
+            "ai_task_data": (DEFAULT_AI_TASK_NAME, RECOMMENDED_AI_TASK_OPTIONS),
+            "tts": (DEFAULT_TTS_NAME, RECOMMENDED_TTS_OPTIONS),
+            "stt": (DEFAULT_STT_NAME, RECOMMENDED_STT_OPTIONS),
+        }
+        existing = {subentry.subentry_type for subentry in entry.subentries.values()}
+        for subentry_type, (title, data) in defaults.items():
+            if subentry_type in existing:
+                continue
+            hass.config_entries.async_add_subentry(
+                entry,
+                ConfigSubentry(
+                    data=dict(data),
+                    subentry_type=subentry_type,
+                    title=title,
+                    unique_id=None,
+                ),
+            )
+
+        hass.config_entries.async_update_entry(entry, minor_version=3)
         _LOGGER.debug("Migration to version %s.%s successful", entry.version, entry.minor_version)
 
     return True

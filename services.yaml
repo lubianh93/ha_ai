@@ -1,18 +1,29 @@
 generate_image:
   name: 生成图像
-  description: 使用SiliconFlow图像生成模型生成图像（需要SiliconFlow API密钥）
+  description: 使用指定的图像生成子配置生成图像。
   fields:
+    config_entry_id:
+      name: 配置项 ID
+      description: 有多个 HA AI 配置项时可指定。
+      required: false
+      selector:
+        text:
+    subentry_id:
+      name: 子配置 ID
+      description: 指定图像生成子配置。留空时使用第一个图像生成子配置。
+      required: false
+      selector:
+        text:
     prompt:
       name: 提示词
-      description: 描述要生成的图像内容
+      description: 描述要生成的图像内容。
       required: true
-      example: "一只可爱的猫咪坐在窗台上看夕阳"
       selector:
         text:
           multiline: true
     size:
       name: 图像尺寸
-      description: 生成图像的尺寸
+      description: 生成图像的尺寸。
       required: false
       default: "1024x1024"
       selector:
@@ -27,64 +38,68 @@ generate_image:
             - "720x1440"
     model:
       name: 模型
-      description: 使用的图像生成模型
+      description: 图像生成模型，可填写当前平台支持的任意模型名。
       required: false
-      default: "Kwai-Kolors/Kolors"
+      default: "gpt-image-1"
       selector:
-        select:
-          options:
-            - "Kwai-Kolors/Kolors"
-            - "black-forest-labs/FLUX.1-schnell"
+        text:
 
 analyze_image:
   name: 分析图像
-  description: 使用SiliconFlow分析图像内容（需要SiliconFlow API密钥）
+  description: 使用指定的对话/视觉子配置分析图像内容。
   fields:
+    config_entry_id:
+      name: 配置项 ID
+      description: 有多个 HA AI 配置项时可指定。
+      required: false
+      selector:
+        text:
+    subentry_id:
+      name: 子配置 ID
+      description: 指定对话/视觉子配置。留空时使用第一个对话子配置。
+      required: false
+      selector:
+        text:
     image_file:
       name: 图像文件
-      description: 要分析的图像文件路径
+      description: 要分析的图像文件路径。
       required: false
       selector:
         text:
     image_entity:
       name: 图像实体
-      description: 要分析的摄像头实体ID
+      description: 要分析的摄像头实体 ID。
       required: false
       selector:
         entity:
           domain: camera
     message:
       name: 分析指令
-      description: 告诉AI如何分析这张图像
+      description: 告诉 AI 如何分析这张图像。
       required: true
-      example: "请描述这张图片中的内容"
       selector:
         text:
           multiline: true
     model:
       name: 模型
-      description: 使用的图像分析模型
+      description: 图像分析模型，可填写当前平台支持的任意模型名。
       required: false
-      default: "THUDM/GLM-4.1V-9B-Thinking"
+      default: "gpt-4o-mini"
       selector:
-        select:
-          options:
-            - "THUDM/GLM-4.1V-9B-Thinking"
-            - "Qwen/Qwen2-VL-72B-Instruct"
-            - "Qwen/Qwen2-VL-7B-Instruct"
+        text:
     temperature:
       name: 温度
-      description: 控制输出的随机性，值越高输出越随机
+      description: 控制输出随机性。
       required: false
       default: 0.7
       selector:
         number:
           min: 0
-          max: 1
+          max: 2
           step: 0.1
     max_tokens:
       name: 最大令牌数
-      description: 限制回答的最大长度
+      description: 限制最大响应长度。
       required: false
       default: 1024
       selector:
@@ -93,7 +108,7 @@ analyze_image:
           max: 4096
     stream:
       name: 流式输出
-      description: 是否启用流式输出
+      description: 启用流式输出。
       required: false
       default: false
       selector:
@@ -101,134 +116,105 @@ analyze_image:
 
 create_automation:
   name: 创建自动化
-  description: 通过自然语言描述创建Home Assistant自动化
+  description: 通过自然语言描述创建 Home Assistant 自动化，使用当前配置的对话子配置。
   fields:
     description:
       name: 自动化描述
-      description: 描述你想要的自动化行为，例如"当检测到有人移动时打开客厅的灯"
+      description: 描述想要的自动化行为。
       required: true
-      example: "每天晚上8点自动关闭所有灯光"
       selector:
         text:
           multiline: true
     name:
       name: 自动化名称
-      description: 为自动化指定一个名称
+      description: 为自动化指定名称。
       required: false
-      example: "晚间关灯自动化"
       selector:
         text:
     area_id:
-      name: 区域ID
-      description: 指定自动化相关的区域
+      name: 区域 ID
+      description: 指定自动化相关的区域。
       required: false
-      example: "living_room"
       selector:
         text:
 
 stt_transcribe:
-  name: 语音转文本
-  description: 使用SiliconFlow将语音文件转换为文本（需要Silicon Flow API密钥）
+  name: 语音转文字
+  description: 使用指定的 STT 子配置将音频文件转换为文本。
   fields:
+    config_entry_id:
+      name: 配置项 ID
+      description: 有多个 HA AI 配置项时可指定。
+      required: false
+      selector:
+        text:
+    subentry_id:
+      name: 子配置 ID
+      description: 指定 STT 子配置。留空时使用第一个 STT 子配置。
+      required: false
+      selector:
+        text:
     file:
       name: 音频文件
-      description: 要转录的音频文件路径
+      description: 要转录的音频文件路径。
       required: true
       selector:
         text:
     model:
       name: 模型
-      description: 使用的STT模型
+      description: STT 模型，可填写当前平台支持的任意模型名。
       required: false
-      default: "FunAudioLLM/SenseVoiceSmall"
+      default: "whisper-1"
       selector:
-        select:
-          options:
-            - "FunAudioLLM/SenseVoiceSmall"
-            - "TeleAI/TeleSpeechASR"
-    language:
-      name: 语言
-      description: 指定语言（HA 2025.12+ auto=自动检测）
-      required: false
-      default: "auto"
-      selector:
-        select:
-          options:
-            - "auto"
-            - "zh-CN"
-            - "en-US"
-            - "ja-JP"
-            - "ko-KR"
+        text:
 
 tts_say:
   name: 文字转语音
-  description: 使用Edge TTS生成语音，支持流式和非流式两种模式
+  description: 使用指定的 TTS 子配置生成语音，Edge TTS 免费选项仍然可用。
   fields:
+    config_entry_id:
+      name: 配置项 ID
+      description: 有多个 HA AI 配置项时可指定。
+      required: false
+      selector:
+        text:
+    subentry_id:
+      name: 子配置 ID
+      description: 指定 TTS 子配置。留空时使用第一个 TTS 子配置。
+      required: false
+      selector:
+        text:
     text:
       name: 文本内容
-      description: 要转换为语音的文本内容
+      description: 要转换为语音的文本内容。
       required: true
-      example: "你好，欢迎使用文字转语音服务"
       selector:
         text:
           multiline: true
     voice:
       name: 语音
-      description: 选择语音类型
+      description: 当前平台使用的语音名称。
       required: false
       default: "zh-CN-XiaoxiaoNeural"
       selector:
-        select:
-          options:
-            - "zh-CN-XiaoxiaoNeural"
-            - "zh-CN-XiaoyiNeural"
-            - "zh-CN-YunjianNeural"
-            - "zh-CN-YunxiNeural"
-            - "zh-CN-YunxiaNeural"
-            - "zh-CN-YunyangNeural"
-            - "zh-HK-HiuGaaiNeural"
-            - "zh-HK-HiuMaanNeural"
-            - "zh-HK-WanLungNeural"
-            - "zh-TW-HsiaoChenNeural"
-            - "zh-TW-YunJheNeural"
-            - "zh-TW-HsiaoYuNeural"
-            - "en-US-JennyNeural"
-            - "en-US-GuyNeural"
-            - "en-GB-SoniaNeural"
-            - "en-GB-RyanNeural"
-            - "ja-JP-NanamiNeural"
-            - "ja-JP-KeitaNeural"
-            - "ko-KR-SunHiNeural"
-            - "ko-KR-InJoonNeural"
-    quality:
-      name: 质量
-      description: 语音质量（HA 2025.10+）
-      required: false
-      default: "default"
-      selector:
-        select:
-          options:
-            - "default"
-            - "high"
-            - "medium"
-            - "low"
+        text:
     media_player_entity:
       name: 媒体播放器
-      description: 指定用于播放生成的语音的媒体播放器实体ID（可选）
+      description: 用于播放生成语音的媒体播放器实体。
       required: false
       selector:
         entity:
           domain: media_player
     stream:
       name: 流式输出
-      description: 启用流式输出模式，音频通过事件总线实时推送（需监听ai_hub_tts_stream_chunk事件）
+      description: 通过事件总线推送音频块。
       required: false
       default: false
       selector:
         boolean:
     chunk_size:
       name: 块大小
-      description: 流式模式下的音频块大小（字节），达到此大小时推送事件
+      description: 流式模式下的音频块大小，单位字节。
       required: false
       default: 4096
       selector:

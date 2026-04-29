@@ -31,11 +31,10 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
-    CONF_API_KEY,
     DOMAIN,
     TIMEOUT_HEALTH_CHECK,
 )
-from .diagnostics import get_diagnostics_collector
+from .diagnostics import collect_api_monitor_targets, get_diagnostics_collector
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -68,12 +67,8 @@ async def async_setup_entry(
     # Main integration health sensor (always added)
     entities.append(AIHubHealthCheckSensor(hass, entry))
 
-    # Edge TTS health sensor (always available, no API key needed)
+    # Edge TTS health sensor (free provider, commonly used)
     entities.append(EdgeTTSHealthSensor(hass, entry))
-
-    # SiliconFlow health sensor (if main API key configured)
-    if entry.data.get(CONF_API_KEY):
-        entities.append(SiliconFlowHealthSensor(hass, entry))
 
     async_add_entities(entities)
 
@@ -158,12 +153,12 @@ class AIHubHealthCheckSensor(SensorEntity):
         """Update the health status."""
         session = async_get_clientsession(self.hass)
 
-        # Check SiliconFlow
-        if self._entry.data.get(CONF_API_KEY):
-            self._api_statuses["siliconflow"] = await self._check_api(
+        self._api_statuses = {}
+        for target in collect_api_monitor_targets(self._entry):
+            self._api_statuses[target["key"]] = await self._check_api(
                 session,
-                "https://api.siliconflow.cn",
-                "SiliconFlow",
+                target["monitor_url"],
+                target["label"],
             )
 
         self._last_check = datetime.now()
@@ -301,17 +296,9 @@ class _BaseHealthSensor(SensorEntity):
         self._last_check = datetime.now()
 
 
-class SiliconFlowHealthSensor(_BaseHealthSensor):
-    """Sensor for SiliconFlow API health and latency."""
-
-    _check_url = "https://api.siliconflow.cn"
-    _name_suffix = "siliconflow"
-
-
 class EdgeTTSHealthSensor(_BaseHealthSensor):
     """Sensor for Edge TTS API health and latency."""
 
     _check_url = "https://speech.platform.bing.com"
     _name_suffix = "edge_tts"
     _attr_icon = "mdi:text-to-speech"
-

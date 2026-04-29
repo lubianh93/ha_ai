@@ -10,7 +10,15 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
+from .config_resolver import resolve_entry_config
+from .const import (
+    CONF_CHAT_MODEL,
+    CONF_CHAT_URL,
+    DOMAIN,
+    DEFAULT_CHAT_URL,
+    RECOMMENDED_CHAT_MODEL,
+    SUBENTRY_CONVERSATION,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -116,10 +124,9 @@ mode: single
 
 请直接返回YAML代码，不要包含任何其他文字："""
 
-            # Call SiliconFlow conversation engine
+            # Call the configured conversation engine
             try:
-                # Call SiliconFlow API to generate YAML
-                yaml_result = await self._call_siliconflow_api_for_yaml(yaml_prompt)
+                yaml_result = await self._call_configured_llm_for_yaml(yaml_prompt)
 
                 if yaml_result:
                     # Clean response and extract pure YAML code
@@ -135,13 +142,17 @@ mode: single
             _LOGGER.error("Error generating automation YAML: %s", e)
             return None
 
-    async def _call_siliconflow_api_for_yaml(self, prompt: str) -> str | None:
+    async def _call_configured_llm_for_yaml(self, prompt: str) -> str | None:
         """Call AI Hub API directly for YAML generation."""
         try:
             import aiohttp
 
-            # Get API key from HASS configuration
-            api_key = self._get_api_key()
+            llm_config = self._get_llm_config()
+            if not llm_config:
+                _LOGGER.error("No HA AI conversation configuration available")
+                return None
+
+            chat_url, model, api_key = llm_config
             if not api_key:
                 _LOGGER.error("No AI Hub API key available")
                 return None
@@ -155,7 +166,7 @@ mode: single
             ]
 
             request_params = {
-                "model": "Qwen/Qwen3-8B",  # Use default model
+                "model": model,
                 "messages": messages,
                 "stream": False,  # Non-streaming response
                 "max_tokens": 2000,
@@ -167,10 +178,9 @@ mode: single
                 "Content-Type": "application/json",
             }
 
-            # Call SiliconFlow API
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    "https://api.siliconflow.cn/v1/chat/completions",
+                    chat_url,
                     json=request_params,
                     headers=headers,
                     timeout=aiohttp.ClientTimeout(total=30),
@@ -195,28 +205,31 @@ mode: single
             _LOGGER.error("Error calling AI Hub API: %s", e)
             return None
 
-    def _get_api_key(self) -> str | None:
-        """Get AI Hub API key from Home Assistant configuration."""
+    def _get_llm_config(self) -> tuple[str, str, str | None] | None:
+        """Get configured conversation API URL, model, and API key."""
         try:
             from homeassistant.config_entries import ConfigEntries
-
-            from .const import DOMAIN
 
             config_entries: ConfigEntries = self.hass.config_entries
             ai_hub_entries = config_entries.async_entries_for_domain(DOMAIN)
 
-            if ai_hub_entries:
-                entry = ai_hub_entries[0]
-                # API key is stored in runtime_data
-                api_key = entry.runtime_data
+            for entry in ai_hub_entries:
+                if not getattr(entry, "subentries", None):
+                    continue
+                chat_url, model, api_key = resolve_entry_config(
+                    entry,
+                    SUBENTRY_CONVERSATION,
+                    (CONF_CHAT_URL, DEFAULT_CHAT_URL),
+                    (CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL),
+                )
                 if api_key:
-                    return api_key
+                    return str(chat_url), str(model), api_key
 
             _LOGGER.warning("No AI Hub configuration found")
             return None
 
         except Exception as e:
-            _LOGGER.error("Error getting API key: %s", e)
+            _LOGGER.error("Error getting LLM config: %s", e)
             return None
 
     def _extract_yaml_from_response(self, response: str) -> str | None:

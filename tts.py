@@ -9,6 +9,7 @@ Features:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import time
@@ -26,6 +27,7 @@ from homeassistant.components.tts import (
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from propcache.api import cached_property
@@ -41,8 +43,14 @@ except ImportError:
         raise Exception('edge_tts is required. Please install edge_tts.')
 
 from .const import (
+    ALIYUN_BAILIAN_TTS_PROVIDER,
     CONF_TTS_LANG,
+    CONF_TTS_MODEL,
+    CONF_TTS_PROVIDER,
+    CONF_TTS_URL,
     CONF_TTS_VOICE,
+    DEFAULT_TTS_PROVIDER,
+    DEFAULT_TTS_URL,
     DOMAIN,
     EDGE_TTS_VOICES,
     TTS_CACHE_MAX_SIZE,
@@ -52,6 +60,7 @@ from .const import (
     TTS_DEFAULT_VOICES,
 )
 from .entity import AIHubEntityBase
+from .services_lib.tts import _aliyun_bailian_tts_audio
 from .utils.tts_cache import TTSCache
 
 # Create supported languages dynamically
@@ -114,12 +123,13 @@ class AIHubTTSEntity(TextToSpeechEntity, AIHubEntityBase):
         """Initialize the TTS entity."""
         super().__init__(config_entry, subentry, TTS_DEFAULT_VOICE)
         self._attr_available = True
+        self._request_lock = asyncio.Lock()
 
         self._attr_device_info = dr.DeviceInfo(
             identifiers={(DOMAIN, subentry.subentry_id)},
             name=subentry.title,
             manufacturer="老王杂谈说",
-            model="Edge TTS",
+            model=self._get_provider_name(),
             sw_version=edge_tts.__version__,
             entry_type=dr.DeviceEntryType.SERVICE,
         )
@@ -128,6 +138,11 @@ class AIHubTTSEntity(TextToSpeechEntity, AIHubEntityBase):
     def options(self) -> dict[str, Any]:
         """Return the options for this entity."""
         return self.subentry.data
+
+    def _get_provider_name(self) -> str:
+        """Return configured TTS provider."""
+        provider = self.subentry.data.get(CONF_TTS_PROVIDER, DEFAULT_TTS_PROVIDER)
+        return str(provider or DEFAULT_TTS_PROVIDER).strip() or DEFAULT_TTS_PROVIDER
 
     @cached_property
     def default_options(self) -> dict[str, Any]:
@@ -181,6 +196,9 @@ class AIHubTTSEntity(TextToSpeechEntity, AIHubEntityBase):
         else:
             voice = self.subentry.data.get(CONF_TTS_VOICE, TTS_DEFAULT_VOICE)
 
+        if self._get_provider_name() != DEFAULT_TTS_PROVIDER:
+            return str(voice or TTS_DEFAULT_VOICE).strip() or TTS_DEFAULT_VOICE
+
         # If voice is a language code, convert to corresponding default voice
         if voice in SUPPORTED_LANGUAGES:
             voice = SUPPORTED_LANGUAGES[voice]
@@ -224,6 +242,17 @@ class AIHubTTSEntity(TextToSpeechEntity, AIHubEntityBase):
             'TTS: message="%s", voice="%s", pitch=%s, rate=%s, volume=%s',
             message[:50], voice, pitch, rate, volume
         )
+
+        provider = self._get_provider_name()
+        if provider != DEFAULT_TTS_PROVIDER:
+            async with self._request_lock:
+                audio_bytes = await self._process_remote_tts(
+                    message,
+                    voice,
+                    options,
+                )
+            cache.set(cache_key, audio_bytes)
+            return audio_bytes
 
         start_time = time.perf_counter()
 
@@ -282,6 +311,80 @@ class AIHubTTSEntity(TextToSpeechEntity, AIHubEntityBase):
                     _LOGGER.error("Default voice retry failed: %s", retry_exc)
             raise HomeAssistantError(f"TTS generation failed: {exc}") from exc
 
+    async def _process_openai_compatible_tts(
+        self,
+        message: str,
+        voice: str,
+        options: dict[str, Any],
+    ) -> bytes:
+        """Process TTS through an OpenAI-compatible HTTP speech endpoint.
+
+        This intentionally avoids realtime websocket/session APIs. Some Qwen
+        realtime TTS integrations can emit session.updated after the client has
+        already started finishing a request; serial HTTP requests are less
+        interactive but much more predictable for Home Assistant TTS bursts.
+        """
+        if not self._api_key:
+            raise HomeAssistantError("TTS API key is not configured")
+
+        tts_url = str(
+            self.subentry.data.get(CONF_TTS_URL)
+            or DEFAULT_TTS_URL
+        ).strip()
+        model = str(self.subentry.data.get(CONF_TTS_MODEL) or "tts-1").strip()
+
+        payload: dict[str, Any] = {
+            "model": model,
+            "input": message,
+            "voice": voice,
+            "response_format": options.get("response_format", "mp3"),
+        }
+        speed = options.get("speed")
+        if speed is not None:
+            payload["speed"] = speed
+
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+        }
+
+        session = async_get_clientsession(self.hass)
+        async with session.post(
+            tts_url,
+            headers=headers,
+            json=payload,
+            timeout=60,
+        ) as response:
+            if response.status != 200:
+                error_text = await response.text()
+                raise HomeAssistantError(
+                    f"TTS request failed: HTTP {response.status} {error_text}"
+                )
+            audio_bytes = await response.read()
+
+        if not audio_bytes:
+            raise HomeAssistantError("No audio data generated")
+        return audio_bytes
+
+    async def _process_remote_tts(
+        self,
+        message: str,
+        voice: str,
+        options: dict[str, Any],
+    ) -> bytes:
+        """Process non-Edge TTS providers through a serialized request."""
+        provider = self._get_provider_name()
+        if provider == ALIYUN_BAILIAN_TTS_PROVIDER:
+            return await _aliyun_bailian_tts_audio(
+                self.hass,
+                message,
+                voice,
+                self._api_key,
+                self.subentry.data.get(CONF_TTS_URL),
+                self.subentry.data.get(CONF_TTS_MODEL),
+            )
+        return await self._process_openai_compatible_tts(message, voice, options)
+
     # ========== 流式输出支持 ==========
 
     async def async_stream_tts_audio(self, request: TTSAudioRequest) -> TTSAudioResponse:
@@ -291,6 +394,19 @@ class AIHubTTSEntity(TextToSpeechEntity, AIHubEntityBase):
     async def _stream_tts_audio(self, request: TTSAudioRequest) -> AsyncGenerator[bytes, None]:
         """Stream TTS audio generation."""
         _LOGGER.debug("Starting streaming TTS, options: %s", request.options)
+
+        if self._get_provider_name() != DEFAULT_TTS_PROVIDER:
+            buffer = ""
+            async for message in request.message_gen:
+                buffer += message
+            if buffer.strip():
+                async with self._request_lock:
+                    yield await self._process_remote_tts(
+                        buffer.strip(),
+                        self._resolve_voice(request.language, request.options),
+                        request.options or {},
+                    )
+            return
 
         separators = "\n。.，,；;！!？?、"
         buffer = ""

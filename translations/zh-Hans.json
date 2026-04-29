@@ -2,31 +2,35 @@
   "config": {
     "step": {
       "user": {
-        "title": "连接到HA AI",
-        "description": "请输入你需要对应服务的API-KEY，如果需要全服务，请输入所有的API-KEY，如果有任何问题，可以点击问号图标查看帮助文档。",
+        "title": "连接到 HA AI",
+        "description": "配置集成名称和多平台 API 密钥。具体模型、接口地址和平台会在各子项中单独配置。",
         "data": {
-          "api_key": "SiliconFlow API密钥"
+          "name": "名称",
+          "api_key": "旧版主 API 密钥",
+          "api_keys": "多平台 API 密钥"
+        },
+        "data_description": {
+          "api_key": "兼容旧配置；新配置建议使用多平台 API 密钥或子项自定义密钥",
+          "api_keys": "JSON 对象，例如 {\"openai\":\"sk-...\",\"siliconflow\":\"sk-...\",\"aliyun\":\"...\"}"
         }
       }
     },
     "error": {
-      "cannot_connect": "无法连接到HA AI服务",
-      "invalid_auth": "API密钥无效",
-      "unknown": "未知错误"
+      "cannot_connect": "无法连接到 HA AI 服务",
+      "invalid_auth": "API 密钥无效",
+      "unknown": "未知错误",
+      "invalid_model_catalog": "模型目录必须是有效 JSON，可使用字符串列表、{\"id\":\"...\",\"note\":\"...\"} 列表或对象映射。"
     },
     "abort": {
-      "already_configured": "此API密钥已经配置"
+      "already_configured": "该配置已经存在"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "配置选项",
-        "description": "请在集成详情页面找到对应的子项目（对话助手或AI任务），点击每个子项目右侧的配置按钮修改设置。点击集成页面上的HA AI进入详情页面，您会看到已配置的子项目列表，每个子项目都可以单独配置。"
+        "title": "多平台 API 密钥",
+        "description": "维护可复用的平台 API 密钥 JSON。子项里的“平台密钥名称”会从这里读取。"
       }
-    },
-    "abort": {
-      "configure_via_subentries": "请通过子项目配置对话和AI任务。在设备页面找到对应的子项目。"
     }
   },
   "config_subentries": {
@@ -39,15 +43,17 @@
       "step": {
         "init": {
           "title": "配置对话助手",
-          "description": "自定义对话助手的行为和参数。开启推荐模式将使用最佳配置，或关闭以自定义所有参数。提交后将切换配置信息。",
+          "description": "配置对话助手。高级配置始终显示，可使用任意 OpenAI 兼容平台。",
           "data": {
             "name": "名称",
-            "recommended": "推荐模式",
+            "provider_preset": "平台预设",
             "prompt": "提示词模板",
             "chat_model": "聊天模型",
-            "chat_url": "对话API地址",
-            "llm_provider": "LLM 提供者",
-            "custom_api_key": "自定义API密钥",
+            "model_catalog": "模型目录",
+            "chat_url": "对话 API 地址",
+            "llm_provider": "LLM 提供器",
+            "provider_key": "平台密钥名称",
+            "custom_api_key": "自定义 API 密钥",
             "temperature": "温度",
             "top_k": "Top K",
             "max_tokens": "最大令牌数",
@@ -60,13 +66,15 @@
             "long_memory_conversation": "自动近期记忆"
           },
           "data_description": {
-            "recommended": "使用推荐配置",
+            "provider_preset": "选择模板以填充平台密钥名称、接口地址和模型。选择自定义后可自由编辑。",
             "prompt": "自定义系统提示词",
             "chat_model": "选择或输入自定义模型名称",
-            "chat_url": "完整的对话API地址（如API不通，请在地址后添加 /chat/completions）",
-            "llm_provider": "选择当前对话使用的聊天模型 API 提供者",
-            "custom_api_key": "自定义API密钥（留空使用主密钥）",
-            "temperature": "控制创造性（0-2）",
+            "model_catalog": "可编辑 JSON 模型列表，使用 id 和 note 备注价格、状态等信息",
+            "chat_url": "完整对话 API 地址，例如 /v1/chat/completions",
+            "llm_provider": "当前对话使用的 LLM 提供器",
+            "provider_key": "从顶层多平台 API 密钥 JSON 中读取的名称，例如 openai、siliconflow、aliyun",
+            "custom_api_key": "此子项专用 API 密钥，优先级高于平台密钥名称",
+            "temperature": "控制创造性，范围 0-2",
             "max_tokens": "最大响应长度",
             "max_history_messages": "保留的历史消息数量",
             "long_memory_enabled": "启用长期摘要记忆",
@@ -81,29 +89,33 @@
     },
     "ai_task_data": {
       "initiate_flow": {
-        "user": "添加AI任务",
-        "reconfigure": "重新配置AI任务"
+        "user": "添加 AI 任务",
+        "reconfigure": "重新配置 AI 任务"
       },
-      "entry_type": "HA AI AI任务",
+      "entry_type": "HA AI 任务",
       "step": {
         "init": {
-          "title": "配置AI任务",
-          "description": "自定义AI任务的行为和参数。聊天模型自动跟随对话助手的设置。开启推荐模式使用最佳设置，或关闭以自定义参数。",
+          "title": "配置 AI 任务",
+          "description": "配置 AI 任务和图像生成。文本模型会跟随对话助手设置。",
           "data": {
             "name": "名称",
-            "recommended": "推荐模式",
+            "provider_preset": "平台预设",
             "image_model": "图像模型",
-            "image_url": "图像生成API地址",
-            "custom_api_key": "自定义API密钥",
+            "model_catalog": "图像模型目录",
+            "image_url": "图像生成 API 地址",
+            "provider_key": "平台密钥名称",
+            "custom_api_key": "自定义 API 密钥",
             "temperature": "温度",
             "max_tokens": "最大令牌数"
           },
           "data_description": {
-            "recommended": "使用推荐设置",
+            "provider_preset": "选择模板以填充平台密钥名称、接口地址和模型。选择自定义后可自由编辑。",
             "image_model": "选择或输入自定义图像生成模型",
-            "image_url": "完整的图像生成API地址（默认SiliconFlow）",
-            "custom_api_key": "自定义API密钥（留空使用主密钥）",
-            "temperature": "控制创造性（0-2）",
+            "model_catalog": "可编辑 JSON 图像模型列表，支持备注价格、状态等信息",
+            "image_url": "完整图像生成 API 地址",
+            "provider_key": "从顶层多平台 API 密钥 JSON 中读取的名称",
+            "custom_api_key": "此子项专用 API 密钥",
+            "temperature": "控制创造性，范围 0-2",
             "max_tokens": "最大响应长度"
           }
         }
@@ -111,46 +123,66 @@
     },
     "tts": {
       "initiate_flow": {
-        "user": "添加Edge TTS语音",
-        "reconfigure": "重新配置Edge TTS语音"
+        "user": "添加 TTS 语音",
+        "reconfigure": "重新配置 TTS 语音"
       },
-      "entry_type": "HA AI Edge TTS语音",
+      "entry_type": "HA AI TTS 语音",
       "step": {
         "init": {
-          "title": "配置Edge TTS语音",
-          "description": "自定义Edge TTS文本转语音参数。Edge TTS是微软提供的免费TTS服务，支持多种语音和语言。",
+          "title": "配置 TTS 语音",
+          "description": "配置文本转语音。Edge TTS 仍作为免费选项保留，其他平台可使用 OpenAI 兼容 HTTP 语音接口。",
           "data": {
             "name": "名称",
-            "recommended": "推荐模式",
+            "provider_preset": "平台预设",
+            "tts_provider": "TTS 平台",
+            "tts_model": "TTS 模型",
+            "tts_url": "TTS API 地址",
+            "provider_key": "平台密钥名称",
+            "custom_api_key": "自定义 API 密钥",
             "voice": "语音",
             "lang": "语言"
           },
           "data_description": {
-            "recommended": "使用推荐设置",
-            "voice": "选择Edge TTS语音，如晓晓、云熙等",
-            "lang": "选择语音语言，如zh-CN代表中文"
+            "provider_preset": "选择模板。阿里云百炼在使用 wss:// 地址时会走串行 realtime 会话。",
+            "tts_provider": "edge_tts 为免费 Edge TTS；openai_compatible_tts 为 HTTP 语音接口",
+            "tts_model": "平台模型名称，例如 tts-1 或 qwen-tts",
+            "tts_url": "完整 HTTP 语音 API 地址",
+            "provider_key": "从顶层多平台 API 密钥 JSON 中读取的名称",
+            "custom_api_key": "此 TTS 子项专用 API 密钥",
+            "voice": "语音名称。Edge TTS 使用如 zh-CN-XiaoxiaoNeural，其他平台按其接口填写",
+            "lang": "语音语言，例如 zh-CN"
           }
         }
       }
     },
     "stt": {
       "initiate_flow": {
-        "user": "添加硅基流动ASR",
-        "reconfigure": "重新配置硅基流动ASR"
+        "user": "添加 STT",
+        "reconfigure": "重新配置 STT"
       },
-      "entry_type": "HA AI 硅基流动ASR",
+      "entry_type": "HA AI STT",
       "step": {
         "init": {
-          "title": "配置硅基流动ASR",
-          "description": "自定义硅基流动ASR语音转文本参数。硅基流动提供高质量的ASR服务，支持多种模型和语言。",
+          "title": "配置 STT",
+          "description": "配置语音转文本，默认按 OpenAI 兼容转录接口组织参数。",
           "data": {
             "name": "名称",
-            "recommended": "推荐模式",
-            "model": "ASR模型"
+            "provider_preset": "平台预设",
+            "stt_provider": "STT 平台",
+            "model": "STT 模型",
+            "model_catalog": "STT 模型目录",
+            "stt_url": "STT API 地址",
+            "provider_key": "平台密钥名称",
+            "custom_api_key": "自定义 API 密钥"
           },
           "data_description": {
-            "recommended": "使用推荐设置",
-            "model": "选择ASR模型：FunAudioLLM/SenseVoiceSmall（推荐）或TeleAI/TeleSpeechASR"
+            "provider_preset": "选择模板以填充平台密钥名称、接口地址和模型。选择自定义后可自由编辑。",
+            "stt_provider": "平台标识，可为未来提供器自定义",
+            "model": "选择或输入语音识别模型",
+            "model_catalog": "可编辑 JSON 语音识别模型列表，支持备注价格、状态等信息",
+            "stt_url": "完整转录 API 地址",
+            "provider_key": "从顶层多平台 API 密钥 JSON 中读取的名称",
+            "custom_api_key": "此 STT 子项专用 API 密钥"
           }
         }
       }
@@ -159,88 +191,43 @@
   "services": {
     "generate_image": {
       "name": "生成图像",
-      "description": "使用HA AI CogView模型生成图像",
+      "description": "使用已配置的图像生成平台生成图像",
       "fields": {
-        "prompt": {
-          "name": "提示词",
-          "description": "描述要生成的图像内容"
-        },
-        "size": {
-          "name": "图像尺寸",
-          "description": "生成图像的尺寸"
-        },
-        "model": {
-          "name": "模型",
-          "description": "使用的图像生成模型"
-        }
+        "prompt": {"name": "提示词", "description": "描述要生成的图像内容"},
+        "size": {"name": "图像尺寸", "description": "生成图像的尺寸"},
+        "model": {"name": "模型", "description": "图像生成模型"}
       }
     },
     "analyze_image": {
       "name": "分析图像",
-      "description": "使用HA AI分析图像内容",
+      "description": "使用已配置的对话/视觉平台分析图像内容",
       "fields": {
-        "image_file": {
-          "name": "图像文件",
-          "description": "要分析的图像文件路径"
-        },
-        "image_entity": {
-          "name": "图像实体",
-          "description": "要分析摄像头实体ID"
-        },
-        "message": {
-          "name": "分析指令",
-          "description": "告诉AI如何分析这张图像"
-        },
-        "model": {
-          "name": "模型",
-          "description": "使用的图像分析模型"
-        },
-        "temperature": {
-          "name": "温度",
-          "description": "控制输出随机性"
-        },
-        "max_tokens": {
-          "name": "最大令牌数",
-          "description": "限制最大响应长度"
-        },
-        "stream": {
-          "name": "流式输出",
-          "description": "启用流式输出"
-        }
+        "image_file": {"name": "图像文件", "description": "要分析的图像文件路径"},
+        "image_entity": {"name": "图像实体", "description": "要分析的摄像头实体 ID"},
+        "message": {"name": "分析指令", "description": "告诉 AI 如何分析这张图像"},
+        "model": {"name": "模型", "description": "图像分析模型"},
+        "temperature": {"name": "温度", "description": "控制输出随机性"},
+        "max_tokens": {"name": "最大令牌数", "description": "限制最大响应长度"},
+        "stream": {"name": "流式输出", "description": "启用流式输出"}
       }
     },
     "tts_say": {
-      "name": "Edge TTS语音合成",
-      "description": "使用Edge TTS将文本转换为语音",
+      "name": "TTS 语音合成",
+      "description": "使用已配置的 TTS 平台将文本转换为语音",
       "fields": {
-        "text": {
-          "name": "文本",
-          "description": "要转换为语音的文本内容"
-        },
-        "voice": {
-          "name": "语音",
-          "description": "选择Edge TTS语音，如zh-CN-XiaoxiaoNeural"
-        },
-        "media_player_entity": {
-          "name": "媒体播放器",
-          "description": "用于播放语音的媒体播放器实体"
-        }
+        "text": {"name": "文本", "description": "要转换为语音的文本内容"},
+        "voice": {"name": "语音", "description": "当前平台使用的语音名称"},
+        "media_player_entity": {"name": "媒体播放器", "description": "用于播放语音的媒体播放器实体"}
       }
     },
     "stt_transcribe": {
-      "name": "硅基流动ASR转录",
-      "description": "使用硅基流动ASR将语音转换为文本",
+      "name": "STT 转录",
+      "description": "使用已配置的 STT 平台将语音转换为文本",
       "fields": {
-        "file": {
-          "name": "音频文件",
-          "description": "要转录的音频文件路径（支持mp3、wav、flac格式）"
-        },
-        "model": {
-          "name": "ASR模型",
-          "description": "使用的语音识别模型：FunAudioLLM/SenseVoiceSmall（推荐）或TeleAI/TeleSpeechASR"
-        }
+        "file": {"name": "音频文件", "description": "要转录的音频文件路径"},
+        "model": {"name": "STT 模型", "description": "语音识别模型"}
       }
-    }    
+    }
   },
   "title": "HA AI"
 }

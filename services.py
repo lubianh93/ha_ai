@@ -9,20 +9,27 @@ from homeassistant.core import HomeAssistant, ServiceCall
 
 from .config_resolver import resolve_entry_config
 from .const import (
-    AI_HUB_CHAT_URL,
-    AI_HUB_IMAGE_GEN_URL,
     CONF_CHAT_URL,
     CONF_IMAGE_URL,
+    CONF_TTS_MODEL,
+    CONF_TTS_PROVIDER,
+    CONF_TTS_URL,
     CONF_STT_URL,
+    CONF_SUBENTRY_ID,
+    DEFAULT_CHAT_URL,
+    DEFAULT_IMAGE_URL,
+    DEFAULT_STT_URL,
+    DEFAULT_TTS_URL,
+    DEFAULT_TTS_PROVIDER,
     DOMAIN,
     SERVICE_ANALYZE_IMAGE,
     SERVICE_GENERATE_IMAGE,
     SERVICE_STT_TRANSCRIBE,
     SERVICE_TTS_SAY,
-    SILICONFLOW_ASR_URL,
     SUBENTRY_AI_TASK,
     SUBENTRY_CONVERSATION,
     SUBENTRY_STT,
+    SUBENTRY_TTS,
 )
 from .services_lib import (
     IMAGE_ANALYZER_SCHEMA,
@@ -67,9 +74,14 @@ def _get_service_contexts(hass: HomeAssistant) -> dict[str, object]:
     return hass.data.setdefault(_SERVICE_CONTEXTS_KEY, {})
 
 
-def _entry_has_subentry_type(config_entry: Any, subentry_type: str) -> bool:
+def _entry_has_subentry_type(
+    config_entry: Any,
+    subentry_type: str,
+    subentry_id: str | None = None,
+) -> bool:
     return any(
         subentry.subentry_type == subentry_type
+        and (not subentry_id or subentry.subentry_id == subentry_id)
         for subentry in getattr(config_entry, "subentries", {}).values()
     )
 
@@ -86,12 +98,17 @@ def _resolve_service_entry(
 
     contexts = _get_service_contexts(hass)
     explicit_entry_id = call.data.get("config_entry_id")
+    explicit_subentry_id = call.data.get(CONF_SUBENTRY_ID)
 
     if explicit_entry_id:
         config_entry = contexts.get(explicit_entry_id)
         if config_entry is None:
             return hass, None, f"未找到配置项: {explicit_entry_id}"
-        if subentry_type and not _entry_has_subentry_type(config_entry, subentry_type):
+        if subentry_type and not _entry_has_subentry_type(
+            config_entry,
+            subentry_type,
+            explicit_subentry_id,
+        ):
             return hass, None, f"指定配置项不包含 {subentry_type} 子项"
         return hass, config_entry, None
 
@@ -99,12 +116,13 @@ def _resolve_service_entry(
     if subentry_type is not None:
         candidates = [
             entry for entry in candidates
-            if _entry_has_subentry_type(entry, subentry_type)
+            if _entry_has_subentry_type(entry, subentry_type, explicit_subentry_id)
         ]
 
     if not candidates:
         if fallback_entry is not None and (
-            subentry_type is None or _entry_has_subentry_type(fallback_entry, subentry_type)
+            subentry_type is None
+            or _entry_has_subentry_type(fallback_entry, subentry_type, explicit_subentry_id)
         ):
             return hass, fallback_entry, None
         return hass, None, "没有可用配置"
@@ -124,7 +142,12 @@ def _resolve_service_config(
     if error is not None or hass is None or config_entry is None:
         return hass, None, error or "API密钥未配置"
 
-    return hass, resolve_entry_config(config_entry, subentry_type, *values), None
+    return hass, resolve_entry_config(
+        config_entry,
+        subentry_type,
+        *values,
+        subentry_id=call.data.get(CONF_SUBENTRY_ID),
+    ), None
 
 
 async def _handle_service_with_api_key(
@@ -150,7 +173,7 @@ async def _handle_analyze_image(call: ServiceCall) -> dict:
     return await _handle_service_with_api_key(
         call,
         SUBENTRY_CONVERSATION,
-        (CONF_CHAT_URL, AI_HUB_CHAT_URL),
+        (CONF_CHAT_URL, DEFAULT_CHAT_URL),
         config_mapper=lambda config: (config[1], config[0]),
         handler=handle_analyze_image,
     )
@@ -160,17 +183,34 @@ async def _handle_generate_image(call: ServiceCall) -> dict:
     return await _handle_service_with_api_key(
         call,
         SUBENTRY_AI_TASK,
-        (CONF_IMAGE_URL, AI_HUB_IMAGE_GEN_URL),
+        (CONF_IMAGE_URL, DEFAULT_IMAGE_URL),
         config_mapper=lambda config: (config[1], config[0]),
         handler=handle_generate_image,
     )
+
+
+async def _handle_tts_say(call: ServiceCall) -> dict:
+    stream = call.data.get("stream", False)
+    hass, config, error = _resolve_service_config(
+        call,
+        SUBENTRY_TTS,
+        (CONF_TTS_PROVIDER, DEFAULT_TTS_PROVIDER),
+        (CONF_TTS_URL, DEFAULT_TTS_URL),
+        (CONF_TTS_MODEL, ""),
+    )
+    if error is not None or hass is None or config is None:
+        return {"success": False, "error": error or "TTS configuration is not available"}
+
+    provider, tts_url, tts_model, effective_key = config
+    handler = handle_tts_stream if stream else handle_tts_speech
+    return await handler(hass, call, effective_key, provider, tts_url, tts_model)
 
 
 async def _handle_stt_transcribe(call: ServiceCall) -> dict:
     return await _handle_service_with_api_key(
         call,
         SUBENTRY_STT,
-        (CONF_STT_URL, SILICONFLOW_ASR_URL),
+        (CONF_STT_URL, DEFAULT_STT_URL),
         config_mapper=lambda config: (config[1], config[0]),
         handler=handle_stt_transcribe,
     )
@@ -187,12 +227,6 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
     if hass.data.get(_SERVICES_REGISTERED_KEY):
         _LOGGER.debug("services already registered; updated context only")
         return
-
-    async def _handle_tts_say(call: ServiceCall) -> dict:
-        stream = call.data.get("stream", False)
-        if stream:
-            return await handle_tts_stream(hass, call)
-        return await handle_tts_speech(hass, call)
 
     _register_service(hass, SERVICE_ANALYZE_IMAGE, _handle_analyze_image, IMAGE_ANALYZER_SCHEMA)
     _register_service(hass, SERVICE_GENERATE_IMAGE, _handle_generate_image, IMAGE_GENERATOR_SCHEMA)

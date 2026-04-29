@@ -1,3 +1,29 @@
+local_sentence_templates:
+  # 动作在前：打开所有灯 / 关闭全部插座
+  - "[请][请你][帮我][麻烦你]<turn_on><global_scope><device_type>"
+  - "[请][请你][帮我][麻烦你]<turn_off><global_scope><device_type>"
+
+  # 动作在前 + “都/全部”后缀：打开灯全部 / 关闭灯都
+  - "[请][请你][帮我][麻烦你]<turn_on><device_type><global_scope>"
+  - "[请][请你][帮我][麻烦你]<turn_off><device_type><global_scope>"
+
+  # 把字句：把所有灯关掉 / 请把全部插座打开
+  - "[请][请你][帮我][麻烦你]把<global_scope><device_type><turn_on>"
+  - "[请][请你][帮我][麻烦你]把<global_scope><device_type><turn_off>"
+
+  # 把字句 + 都/全部：把所有灯都关掉 / 把全屋灯全部打开
+  - "[请][请你][帮我][麻烦你]把<global_scope><device_type><global_scope><turn_on>"
+  - "[请][请你][帮我][麻烦你]把<global_scope><device_type><global_scope><turn_off>"
+
+  # 将字句：将全部灯关闭
+  - "[请][请你][帮我][麻烦你]将<global_scope><device_type><turn_on>"
+  - "[请][请你][帮我][麻烦你]将<global_scope><device_type><turn_off>"
+
+  # 参数控制：把所有灯亮度调到50%、设置全部空调温度为26度
+  - "[请][请你][帮我][麻烦你]把<global_scope><device_type><parameter>{value}"
+  - "[请][请你][帮我][麻烦你]设置<global_scope><device_type><parameter>{value}"
+  - "[请][请你][帮我][麻烦你]调<global_scope><device_type><parameter>{value}"
+  
 # 本地意图控制配置
 local_intents:
   GlobalDeviceControl:

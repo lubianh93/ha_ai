@@ -16,6 +16,7 @@ Features:
 from __future__ import annotations
 
 import logging
+import json
 from datetime import datetime
 from typing import Any
 from urllib.parse import urlparse
@@ -39,20 +40,27 @@ except ModuleNotFoundError:  # pragma: no cover - used only in lightweight test 
         return redacted
 
 from .const import (
-    AI_HUB_CHAT_URL,
-    AI_HUB_IMAGE_GEN_URL,
+    CONF_API_KEYS,
     CONF_API_KEY,
     CONF_CHAT_URL,
     CONF_CUSTOM_API_KEY,
     CONF_IMAGE_URL,
+    CONF_PROVIDER_KEY,
     CONF_STT_URL,
+    CONF_TTS_PROVIDER,
+    CONF_TTS_URL,
+    DEFAULT_CHAT_URL,
+    DEFAULT_IMAGE_URL,
+    DEFAULT_STT_URL,
+    DEFAULT_TTS_PROVIDER,
+    DEFAULT_TTS_URL,
     DOMAIN,
     RETRY_BASE_DELAY,
     RETRY_MAX_ATTEMPTS,
-    SILICONFLOW_ASR_URL,
     SUBENTRY_AI_TASK,
     SUBENTRY_CONVERSATION,
     SUBENTRY_STT,
+    SUBENTRY_TTS,
     TIMEOUT_CHAT_API,
     TIMEOUT_IMAGE_API,
     TIMEOUT_STT_API,
@@ -66,6 +74,7 @@ _LOGGER = logging.getLogger(__name__)
 # Keys that contain sensitive data and should be redacted
 TO_REDACT = {
     CONF_API_KEY,
+    CONF_API_KEYS,
     CONF_CUSTOM_API_KEY,
     "api_key",
     "token",
@@ -86,6 +95,18 @@ def _effective_api_key_for_subentry(entry: ConfigEntry, subentry: Any) -> str:
     if _is_configured(custom_key):
         return custom_key
 
+    provider_key = str(subentry.data.get(CONF_PROVIDER_KEY, "") or "").strip()
+    api_keys_raw = entry.options.get(CONF_API_KEYS) or entry.data.get(CONF_API_KEYS, "")
+    if provider_key and isinstance(api_keys_raw, str) and api_keys_raw.strip():
+        try:
+            api_keys = json.loads(api_keys_raw)
+        except json.JSONDecodeError:
+            api_keys = {}
+        if isinstance(api_keys, dict):
+            mapped_key = str(api_keys.get(provider_key, "") or "").strip()
+            if mapped_key:
+                return mapped_key
+
     runtime_key = getattr(entry, "runtime_data", None)
     if _is_configured(runtime_key):
         return runtime_key
@@ -100,13 +121,15 @@ def _effective_api_key_for_subentry(entry: ConfigEntry, subentry: Any) -> str:
 def _effective_url_for_subentry(subentry: Any) -> str | None:
     """Return the effective endpoint URL for a subentry."""
     if subentry.subentry_type == SUBENTRY_CONVERSATION:
-        return subentry.data.get(CONF_CHAT_URL, AI_HUB_CHAT_URL)
+        return subentry.data.get(CONF_CHAT_URL, DEFAULT_CHAT_URL)
     if subentry.subentry_type == SUBENTRY_AI_TASK:
-        return subentry.data.get(CONF_IMAGE_URL, AI_HUB_IMAGE_GEN_URL)
+        return subentry.data.get(CONF_IMAGE_URL, DEFAULT_IMAGE_URL)
     if subentry.subentry_type == SUBENTRY_STT:
-        return subentry.data.get(CONF_STT_URL, SILICONFLOW_ASR_URL)
-    if subentry.subentry_type == "tts":
-        return EDGE_TTS_BASE_URL
+        return subentry.data.get(CONF_STT_URL, DEFAULT_STT_URL)
+    if subentry.subentry_type == SUBENTRY_TTS:
+        if subentry.data.get(CONF_TTS_PROVIDER, DEFAULT_TTS_PROVIDER) == DEFAULT_TTS_PROVIDER:
+            return EDGE_TTS_BASE_URL
+        return subentry.data.get(CONF_TTS_URL, DEFAULT_TTS_URL)
     return None
 
 
@@ -297,24 +320,31 @@ def collect_api_monitor_targets(entry: ConfigEntry) -> list[dict[str, Any]]:
     for subentry in entry.subentries.values():
         if subentry.subentry_type == SUBENTRY_CONVERSATION:
             add_target(
-                subentry.data.get(CONF_CHAT_URL, AI_HUB_CHAT_URL),
+                subentry.data.get(CONF_CHAT_URL, DEFAULT_CHAT_URL),
                 "Conversation API",
                 subentry.title,
             )
         elif subentry.subentry_type == SUBENTRY_AI_TASK:
             add_target(
-                subentry.data.get(CONF_IMAGE_URL, AI_HUB_IMAGE_GEN_URL),
+                subentry.data.get(CONF_IMAGE_URL, DEFAULT_IMAGE_URL),
                 "AI Task Image API",
                 subentry.title,
             )
         elif subentry.subentry_type == SUBENTRY_STT:
             add_target(
-                subentry.data.get(CONF_STT_URL, SILICONFLOW_ASR_URL),
+                subentry.data.get(CONF_STT_URL, DEFAULT_STT_URL),
                 "STT API",
                 subentry.title,
             )
-        elif subentry.subentry_type == "tts":
-            add_target(EDGE_TTS_BASE_URL, "Edge TTS API", subentry.title)
+        elif subentry.subentry_type == SUBENTRY_TTS:
+            if subentry.data.get(CONF_TTS_PROVIDER, DEFAULT_TTS_PROVIDER) == DEFAULT_TTS_PROVIDER:
+                add_target(EDGE_TTS_BASE_URL, "Edge TTS API", subentry.title)
+            else:
+                add_target(
+                    subentry.data.get(CONF_TTS_URL, DEFAULT_TTS_URL),
+                    "TTS API",
+                    subentry.title,
+                )
 
     return sorted(targets.values(), key=lambda target: target["label"])
 
