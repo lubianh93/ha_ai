@@ -1,7 +1,7 @@
-"""Health check sensor for AI Hub integration.
+"""Health check sensor for HA AI integration.
 
 This module provides a sensor that monitors the health and status
-of the AI Hub integration and its connected APIs.
+of the HA AI integration and its connected APIs.
 
 Features:
 - API connectivity monitoring
@@ -35,6 +35,7 @@ from .const import (
     TIMEOUT_HEALTH_CHECK,
 )
 from .diagnostics import collect_api_monitor_targets, get_diagnostics_collector
+from .proactive import get_proactive_manager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,8 +50,8 @@ def _get_diagnostic_device_info(entry: ConfigEntry) -> dr.DeviceInfo:
     """Get device info for the diagnostic service."""
     return dr.DeviceInfo(
         identifiers={(DOMAIN, f"{entry.entry_id}_{DIAGNOSTIC_DEVICE_ID}")},
-        name="AI Hub Diagnostic",
-        manufacturer="老王杂谈说",
+        name="HA AI Diagnostic",
+        manufacturer="Fork自老王杂谈说",
         model="Diagnostic Service",
         entry_type=dr.DeviceEntryType.SERVICE,
     )
@@ -65,20 +66,24 @@ async def async_setup_entry(
     entities = []
 
     # Main integration health sensor (always added)
-    entities.append(AIHubHealthCheckSensor(hass, entry))
+    entities.append(HAAIHealthCheckSensor(hass, entry))
 
     # Edge TTS health sensor (free provider, commonly used)
     entities.append(EdgeTTSHealthSensor(hass, entry))
 
+    # Proactive assistant and habit learning status
+    entities.append(HAAIProactiveStatusSensor(hass, entry))
+
     async_add_entities(entities)
 
 
-class AIHubHealthCheckSensor(SensorEntity):
-    """Sensor for overall AI Hub health status."""
+class HAAIHealthCheckSensor(SensorEntity):
+    """Sensor for overall HA AI health status."""
 
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["unknown", "disabled", "active"]
     _attr_icon = "mdi:heart-pulse"
     _attr_should_poll = True
 
@@ -302,3 +307,54 @@ class EdgeTTSHealthSensor(_BaseHealthSensor):
     _check_url = "https://speech.platform.bing.com"
     _name_suffix = "edge_tts"
     _attr_icon = "mdi:text-to-speech"
+
+
+class HAAIProactiveStatusSensor(SensorEntity):
+    """Sensor showing proactive follow-up and habit learning status."""
+
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_icon = "mdi:account-voice"
+    _attr_should_poll = True
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        self.hass = hass
+        self._entry = entry
+        self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_proactive_status"
+        self._attr_name = "Proactive Status"
+        self._attr_device_info = _get_diagnostic_device_info(entry)
+        self._status: dict[str, Any] = {}
+
+    @property
+    def native_value(self) -> str:
+        """Return the proactive feature state."""
+        settings = self._status.get("settings", {})
+        if not settings:
+            return "unknown"
+        if settings.get("follow_up_enabled") or settings.get("habit_learning_enabled"):
+            return "active"
+        return "disabled"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return proactive settings and current counters."""
+        settings = self._status.get("settings", {})
+        return {
+            "follow_up_enabled": settings.get("follow_up_enabled", False),
+            "follow_up_timeout_seconds": settings.get("follow_up_timeout_seconds"),
+            "follow_up_max_attempts": settings.get("follow_up_max_attempts"),
+            "habit_learning_enabled": settings.get("habit_learning_enabled", False),
+            "habit_min_observations": settings.get("habit_min_observations"),
+            "habit_confidence_threshold": settings.get("habit_confidence_threshold"),
+            "habit_temperature_sensors": settings.get("habit_temperature_sensors", []),
+            "habit_presence_entities": settings.get("habit_presence_entities", []),
+            "habit_action_domains": settings.get("habit_action_domains", []),
+            "pending_count": self._status.get("pending_count", 0),
+            "habit_candidate_count": self._status.get("habit_candidate_count", 0),
+            "recent_habit_events": self._status.get("recent_habit_events", [])[-5:],
+        }
+
+    async def async_update(self) -> None:
+        """Update proactive status."""
+        self._status = await get_proactive_manager(self.hass).async_status()

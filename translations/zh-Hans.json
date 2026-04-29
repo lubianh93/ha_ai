@@ -29,7 +29,31 @@
     "step": {
       "init": {
         "title": "多平台 API 密钥",
-        "description": "维护可复用的平台 API 密钥 JSON。子项里的“平台密钥名称”会从这里读取。"
+        "description": "维护可复用的平台 API 密钥、主动追问和习惯学习。模型和接口仍在各子配置里单独设置。",
+        "data": {
+          "api_keys": "多平台 API 密钥",
+          "follow_up_enabled": "主动追问",
+          "follow_up_timeout_seconds": "追问超时时间",
+          "follow_up_max_attempts": "最大追问次数",
+          "habit_learning_enabled": "习惯学习",
+          "habit_min_observations": "最少观察次数",
+          "habit_confidence_threshold": "置信度阈值",
+          "habit_temperature_sensors": "温度传感器",
+          "habit_presence_entities": "人在/存在实体",
+          "habit_action_domains": "观察的服务域"
+        },
+        "data_description": {
+          "api_keys": "JSON 对象，例如 {\"openai\":\"sk-...\",\"aliyun\":\"...\"}",
+          "follow_up_enabled": "当 HA AI 追问“哪个灯/哪个设备”时创建短期上下文。",
+          "follow_up_timeout_seconds": "追问等待 playback_done 或用户回答的有效时间。",
+          "follow_up_max_attempts": "每个追问最多请求 ESP32 继续监听的次数。",
+          "habit_learning_enabled": "观察配置的服务调用并形成习惯候选。不会自动创建自动化，后续仍需确认。",
+          "habit_min_observations": "候选习惯达到可用建议前需要的最少观察次数。",
+          "habit_confidence_threshold": "后续建议逻辑使用的置信度阈值。",
+          "habit_temperature_sensors": "逗号分隔的温度传感器，记录习惯事件时会快照状态。",
+          "habit_presence_entities": "逗号分隔的人在/存在实体，记录习惯事件时会快照状态。",
+          "habit_action_domains": "逗号分隔的服务域，例如 climate,light,switch,fan。"
+        }
       }
     }
   },

@@ -1,4 +1,4 @@
-"""Conversation agent support for AI Hub integration.
+"""Conversation agent support for HA AI integration.
 
 This module implements the ConversationEntity for AI-powered
 dialogue interactions, supporting:
@@ -21,9 +21,10 @@ from homeassistant.helpers import intent, llm
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import CONF_LLM_HASS_API, CONF_PROMPT, DOMAIN
-from .entity import AIHubBaseLLMEntity
+from .entity import HAAIBaseLLMEntity
 from .intents import get_config_cache
 from .intents.command_classifier import classify_global_control_command
+from .proactive import get_proactive_manager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -48,18 +49,18 @@ async def async_setup_entry(
             continue
 
         async_add_entities(
-            [AIHubConversationAgent(config_entry, subentry)],
+            [HAAIConversationAgent(config_entry, subentry)],
             config_subentry_id=subentry.subentry_id,
         )
         _LOGGER.debug("Created conversation agent for subentry: %s", subentry.subentry_id)
 
 
-class AIHubConversationAgent(
+class HAAIConversationAgent(
     conversation.ConversationEntity,
     conversation.AbstractConversationAgent,
-    AIHubBaseLLMEntity,
+    HAAIBaseLLMEntity,
 ):
-    """AI Hub conversation agent."""
+    """HA AI conversation agent."""
 
     _attr_supports_streaming = True
 
@@ -107,6 +108,8 @@ class AIHubConversationAgent(
         2. 如果本地没匹配，交给 Home Assistant 处理（内置意图 + LLM）
         """
         options = self.subentry.data
+        original_text = user_input.text
+        user_input = await self._async_apply_pending_follow_up(user_input)
 
         # ========== 步骤1: 本地意图处理 ==========
         # 只处理 HA 原生不支持的功能（如全局设备控制）
@@ -131,6 +134,11 @@ class AIHubConversationAgent(
                 intent_result = await intent_handler.handle(user_input.text, user_input.language)
                 if intent_result:
                     _LOGGER.debug("Local intent completed")
+                    await self._async_create_follow_up_if_needed(
+                        user_input,
+                        intent_result["response"],
+                        original_text,
+                    )
                     return conversation.ConversationResult(
                         response=intent_result["response"],
                         conversation_id=user_input.conversation_id,
@@ -167,6 +175,11 @@ class AIHubConversationAgent(
 
                 if not has_error and not is_error_type and not is_no_match and response_has_content:
                     _LOGGER.info("HA 内置意图处理成功: %s, type: %s", user_input.text, response_type)
+                    await self._async_create_follow_up_if_needed(
+                        user_input,
+                        ha_response,
+                        original_text,
+                    )
                     return conversation.ConversationResult(
                         response=ha_response,
                         conversation_id=chat_log.conversation_id,
@@ -217,7 +230,7 @@ class AIHubConversationAgent(
             _LOGGER.error(f"LLM conversation error: {err}")
             return err.as_conversation_result()
 
-        # Process the chat log with AI Hub
+        # Process the chat log with HA AI
         # Loop to handle tool calls: model may call tools, then we need to call again with results
         loop_count = 0
         while True:
@@ -258,7 +271,107 @@ class AIHubConversationAgent(
                     chat_log.content[-1] = replace(last_content, content=filtered_content)
 
         # Return result from chat log
-        return conversation.async_get_result_from_chat_log(user_input, chat_log)
+        result = conversation.async_get_result_from_chat_log(user_input, chat_log)
+        await self._async_create_follow_up_if_needed(
+            user_input,
+            result.response,
+            original_text,
+        )
+        return result
+
+    async def _async_apply_pending_follow_up(
+        self,
+        user_input: conversation.ConversationInput,
+    ) -> conversation.ConversationInput:
+        """Apply a pending clarification context to a short follow-up answer."""
+        try:
+            manager = get_proactive_manager(self.hass)
+            pending = await manager.async_match_pending_reply(user_input)
+            if not pending:
+                return user_input
+
+            expanded_text = manager.expand_follow_up_reply(pending, user_input.text)
+            if expanded_text == user_input.text:
+                return user_input
+
+            await manager.async_resolve_pending(pending["pending_id"], "consumed")
+            _LOGGER.info(
+                "Expanded follow-up reply from %r to %r using pending_id=%s",
+                user_input.text,
+                expanded_text,
+                pending.get("pending_id"),
+            )
+            try:
+                return replace(user_input, text=expanded_text)
+            except TypeError:
+                user_input.text = expanded_text
+                return user_input
+        except Exception as err:
+            _LOGGER.debug("Failed to apply pending follow-up: %s", err)
+            return user_input
+
+    async def _async_create_follow_up_if_needed(
+        self,
+        user_input: conversation.ConversationInput,
+        response: intent.IntentResponse,
+        original_text: str,
+    ) -> None:
+        """Create a pending follow-up when the assistant asks a clarification."""
+        question_text = self._extract_plain_speech(response)
+        if not self._looks_like_clarification(question_text):
+            return
+
+        try:
+            pending = await get_proactive_manager(self.hass).async_create_pending_follow_up(
+                original_text=original_text,
+                question_text=question_text,
+                device_id=str(getattr(user_input, "device_id", "") or ""),
+                conversation_id=str(user_input.conversation_id or ""),
+                missing_slot=self._guess_missing_slot(question_text),
+                source="conversation",
+            )
+            if pending:
+                _LOGGER.info(
+                    "Created follow-up pending context: pending_id=%s device_id=%s",
+                    pending.get("pending_id"),
+                    pending.get("device_id"),
+                )
+        except Exception as err:
+            _LOGGER.debug("Failed to create follow-up pending context: %s", err)
+
+    def _extract_plain_speech(self, response: intent.IntentResponse) -> str:
+        """Extract plain speech text from an intent response."""
+        speech = getattr(response, "speech", None)
+        if not isinstance(speech, dict):
+            return ""
+        plain = speech.get("plain")
+        if isinstance(plain, dict):
+            return str(plain.get("speech", "") or "")
+        if isinstance(plain, str):
+            return plain
+        return ""
+
+    def _looks_like_clarification(self, text: str) -> bool:
+        """Return if a response looks like a short clarification question."""
+        if not text or len(text) > 80:
+            return False
+        question_markers = ("哪个", "哪一个", "哪盏", "哪台", "什么", "哪间", "哪里")
+        device_markers = ("灯", "空调", "窗帘", "设备", "房间", "区域", "开关")
+        return any(marker in text for marker in question_markers) and any(
+            marker in text for marker in device_markers
+        )
+
+    def _guess_missing_slot(self, text: str) -> str:
+        """Guess the slot the clarification is asking for."""
+        if "灯" in text:
+            return "light_entity"
+        if "空调" in text:
+            return "climate_entity"
+        if "窗帘" in text:
+            return "cover_entity"
+        if "房间" in text or "区域" in text:
+            return "area"
+        return "target"
 
     def _is_device_operation(self, tool_name: str) -> bool:
         """Check if this is a device control operation"""

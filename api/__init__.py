@@ -1,4 +1,4 @@
-"""API client helpers for AI Hub integration."""
+"""API client helpers for HA AI integration."""
 
 from .base import (
     APIClient,

@@ -1,4 +1,4 @@
-"""Image services for AI Hub - 图像分析和生成功能.
+"""Image services for HA AI - 图像分析和生成功能.
 
 本模块提供图像相关的服务功能：
 - 图像分析：使用已配置的视觉模型分析图像内容

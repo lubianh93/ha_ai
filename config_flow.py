@@ -1,4 +1,4 @@
-"""Config flow for AI Hub integration."""
+"""Config flow for HA AI integration."""
 
 from __future__ import annotations
 
@@ -37,6 +37,15 @@ from .const import (
     CONF_CHAT_MODEL,
     CONF_CHAT_URL,
     CONF_CUSTOM_API_KEY,
+    CONF_FOLLOW_UP_ENABLED,
+    CONF_FOLLOW_UP_MAX_ATTEMPTS,
+    CONF_FOLLOW_UP_TIMEOUT_SECONDS,
+    CONF_HABIT_ACTION_DOMAINS,
+    CONF_HABIT_CONFIDENCE_THRESHOLD,
+    CONF_HABIT_LEARNING_ENABLED,
+    CONF_HABIT_MIN_OBSERVATIONS,
+    CONF_HABIT_PRESENCE_ENTITIES,
+    CONF_HABIT_TEMPERATURE_SENSORS,
     CONF_PROVIDER_PRESET,
     CONF_LLM_PROVIDER,
     CONF_MODEL_CATALOG,
@@ -78,6 +87,11 @@ from .const import (
     CONF_TTS_URL,
     CONF_TTS_VOICE,
     DEFAULT_CHAT_URL,
+    DEFAULT_FOLLOW_UP_MAX_ATTEMPTS,
+    DEFAULT_FOLLOW_UP_TIMEOUT_SECONDS,
+    DEFAULT_HABIT_ACTION_DOMAINS,
+    DEFAULT_HABIT_CONFIDENCE_THRESHOLD,
+    DEFAULT_HABIT_MIN_OBSERVATIONS,
     DEFAULT_IMAGE_URL,
     DEFAULT_STT_URL,
     DEFAULT_TTS_URL,
@@ -169,8 +183,8 @@ def _apply_provider_preset(
     return updated
 
 
-class AIHubConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for AI Hub."""
+class HAAIConfigFlow(ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for HA AI."""
 
     VERSION = 2
     MINOR_VERSION = 3
@@ -178,7 +192,7 @@ class AIHubConfigFlow(ConfigFlow, domain=DOMAIN):
     @staticmethod
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
         """Return options flow for top-level provider key storage."""
-        return AIHubOptionsFlowHandler(config_entry)
+        return HAAIOptionsFlowHandler(config_entry)
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -253,14 +267,14 @@ class AIHubConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> dict[str, type[ConfigSubentryFlow]]:
         """Return subentries supported by this integration."""
         return {
-            "conversation": AIHubSubentryFlowHandler,
-            "ai_task_data": AIHubSubentryFlowHandler,
-            "tts": AIHubSubentryFlowHandler,
-            "stt": AIHubSubentryFlowHandler,
+            "conversation": HAAISubentryFlowHandler,
+            "ai_task_data": HAAISubentryFlowHandler,
+            "tts": HAAISubentryFlowHandler,
+            "stt": HAAISubentryFlowHandler,
         }
 
 
-class AIHubSubentryFlowHandler(ConfigSubentryFlow):
+class HAAISubentryFlowHandler(ConfigSubentryFlow):
     """Handle subentry flow for conversation and AI task."""
 
     options: dict[str, Any]
@@ -360,7 +374,7 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
             self.options[CONF_LONG_MEMORY_GLOBAL] = memory.global_summary or ""
             self.options[CONF_LONG_MEMORY_CONVERSATION] = memory.conversation_summary or ""
             
-        schema = await ai_hub_config_option_schema(
+        schema = await ha_ai_config_option_schema(
             self._is_new, self._subentry_type, self.options
         )
                 
@@ -374,12 +388,12 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
     async_step_user = async_step_init
 
 
-async def ai_hub_config_option_schema(
+async def ha_ai_config_option_schema(
     is_new: bool,
     subentry_type: str,
     options: Mapping[str, Any],
 ) -> dict:
-    """Return a schema for AI Hub completion options."""
+    """Return a schema for HA AI completion options."""
 
     schema = {}
 
@@ -718,8 +732,8 @@ async def ai_hub_config_option_schema(
 
 
 
-class AIHubOptionsFlowHandler(OptionsFlow):
-    """Handle options flow for AI Hub."""
+class HAAIOptionsFlowHandler(OptionsFlow):
+    """Handle options flow for HA AI."""
 
     def __init__(self, config_entry: ConfigEntry) -> None:
         """Initialize options flow."""
@@ -737,6 +751,7 @@ class AIHubOptionsFlowHandler(OptionsFlow):
             or self.config_entry.data.get(CONF_API_KEYS)
             or '{\n  "openai": "",\n  "siliconflow": "",\n  "aliyun": ""\n}'
         )
+        options = self.config_entry.options
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
@@ -745,5 +760,73 @@ class AIHubOptionsFlowHandler(OptionsFlow):
                     default=current_api_keys,
                     description={"suggested_value": current_api_keys},
                 ): str,
+                vol.Optional(
+                    CONF_FOLLOW_UP_ENABLED,
+                    default=options.get(CONF_FOLLOW_UP_ENABLED, False),
+                    description={"suggested_value": options.get(CONF_FOLLOW_UP_ENABLED)},
+                ): bool,
+                vol.Optional(
+                    CONF_FOLLOW_UP_TIMEOUT_SECONDS,
+                    default=options.get(
+                        CONF_FOLLOW_UP_TIMEOUT_SECONDS,
+                        DEFAULT_FOLLOW_UP_TIMEOUT_SECONDS,
+                    ),
+                    description={"suggested_value": options.get(CONF_FOLLOW_UP_TIMEOUT_SECONDS)},
+                ): NumberSelector(
+                    NumberSelectorConfig(min=5, max=180, step=5, mode=NumberSelectorMode.BOX)
+                ),
+                vol.Optional(
+                    CONF_FOLLOW_UP_MAX_ATTEMPTS,
+                    default=options.get(
+                        CONF_FOLLOW_UP_MAX_ATTEMPTS,
+                        DEFAULT_FOLLOW_UP_MAX_ATTEMPTS,
+                    ),
+                    description={"suggested_value": options.get(CONF_FOLLOW_UP_MAX_ATTEMPTS)},
+                ): NumberSelector(
+                    NumberSelectorConfig(min=1, max=3, step=1, mode=NumberSelectorMode.BOX)
+                ),
+                vol.Optional(
+                    CONF_HABIT_LEARNING_ENABLED,
+                    default=options.get(CONF_HABIT_LEARNING_ENABLED, False),
+                    description={"suggested_value": options.get(CONF_HABIT_LEARNING_ENABLED)},
+                ): bool,
+                vol.Optional(
+                    CONF_HABIT_MIN_OBSERVATIONS,
+                    default=options.get(
+                        CONF_HABIT_MIN_OBSERVATIONS,
+                        DEFAULT_HABIT_MIN_OBSERVATIONS,
+                    ),
+                    description={"suggested_value": options.get(CONF_HABIT_MIN_OBSERVATIONS)},
+                ): NumberSelector(
+                    NumberSelectorConfig(min=2, max=30, step=1, mode=NumberSelectorMode.BOX)
+                ),
+                vol.Optional(
+                    CONF_HABIT_CONFIDENCE_THRESHOLD,
+                    default=options.get(
+                        CONF_HABIT_CONFIDENCE_THRESHOLD,
+                        DEFAULT_HABIT_CONFIDENCE_THRESHOLD,
+                    ),
+                    description={"suggested_value": options.get(CONF_HABIT_CONFIDENCE_THRESHOLD)},
+                ): NumberSelector(
+                    NumberSelectorConfig(min=0.1, max=1, step=0.05, mode=NumberSelectorMode.SLIDER)
+                ),
+                vol.Optional(
+                    CONF_HABIT_TEMPERATURE_SENSORS,
+                    default=options.get(CONF_HABIT_TEMPERATURE_SENSORS, ""),
+                    description={"suggested_value": options.get(CONF_HABIT_TEMPERATURE_SENSORS)},
+                ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+                vol.Optional(
+                    CONF_HABIT_PRESENCE_ENTITIES,
+                    default=options.get(CONF_HABIT_PRESENCE_ENTITIES, ""),
+                    description={"suggested_value": options.get(CONF_HABIT_PRESENCE_ENTITIES)},
+                ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+                vol.Optional(
+                    CONF_HABIT_ACTION_DOMAINS,
+                    default=options.get(
+                        CONF_HABIT_ACTION_DOMAINS,
+                        DEFAULT_HABIT_ACTION_DOMAINS,
+                    ),
+                    description={"suggested_value": options.get(CONF_HABIT_ACTION_DOMAINS)},
+                ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
             }),
         )

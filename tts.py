@@ -1,4 +1,4 @@
-"""Text to speech support for AI Hub using Edge TTS.
+"""Text to speech support for HA AI using Edge TTS.
 
 Features:
 - Caching support for frequently used phrases
@@ -59,7 +59,7 @@ from .const import (
     TTS_DEFAULT_VOICE,
     TTS_DEFAULT_VOICES,
 )
-from .entity import AIHubEntityBase
+from .entity import HAAIEntityBase
 from .services_lib.tts import _aliyun_bailian_tts_audio
 from .utils.tts_cache import TTSCache
 
@@ -77,15 +77,15 @@ PROSODY_OPTIONS = ['pitch', 'rate', 'volume', 'quality']
 
 def _get_tts_cache(hass: HomeAssistant) -> TTSCache:
     """Get or create TTS cache instance from hass.data."""
-    from . import get_or_create_ai_hub_data
+    from . import get_or_create_ha_ai_data
 
-    ai_hub_data = get_or_create_ai_hub_data(hass)
-    if ai_hub_data.tts_cache is None:
-        ai_hub_data.tts_cache = TTSCache(
+    ha_ai_data = get_or_create_ha_ai_data(hass)
+    if ha_ai_data.tts_cache is None:
+        ha_ai_data.tts_cache = TTSCache(
             max_size=TTS_CACHE_MAX_SIZE,
             ttl_seconds=TTS_CACHE_TTL
         )
-    return ai_hub_data.tts_cache
+    return ha_ai_data.tts_cache
 
 
 def _generate_cache_key(
@@ -107,13 +107,13 @@ async def async_setup_entry(
             continue
 
         async_add_entities(
-            [AIHubTTSEntity(config_entry, subentry)],
+            [HAAITTSEntity(config_entry, subentry)],
             config_subentry_id=subentry.subentry_id,
         )
 
 
-class AIHubTTSEntity(TextToSpeechEntity, AIHubEntityBase):
-    """AI Hub text-to-speech entity using Edge TTS."""
+class HAAITTSEntity(TextToSpeechEntity, HAAIEntityBase):
+    """HA AI text-to-speech entity using Edge TTS."""
 
     _attr_has_entity_name = False
     _attr_supported_options = ['voice', 'quality'] + PROSODY_OPTIONS
@@ -128,7 +128,7 @@ class AIHubTTSEntity(TextToSpeechEntity, AIHubEntityBase):
         self._attr_device_info = dr.DeviceInfo(
             identifiers={(DOMAIN, subentry.subentry_id)},
             name=subentry.title,
-            manufacturer="老王杂谈说",
+            manufacturer="Fork自老王杂谈说",
             model=self._get_provider_name(),
             sw_version=edge_tts.__version__,
             entry_type=dr.DeviceEntryType.SERVICE,

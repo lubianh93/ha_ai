@@ -22,8 +22,11 @@ from .const import (
     DEFAULT_TTS_URL,
     DEFAULT_TTS_PROVIDER,
     DOMAIN,
+    SERVICE_FOLLOW_UP_PLAYBACK_DONE,
+    SERVICE_GET_PROACTIVE_STATUS,
     SERVICE_ANALYZE_IMAGE,
     SERVICE_GENERATE_IMAGE,
+    SERVICE_RECORD_HABIT_EVENT,
     SERVICE_STT_TRANSCRIBE,
     SERVICE_TTS_SAY,
     SUBENTRY_AI_TASK,
@@ -32,8 +35,11 @@ from .const import (
     SUBENTRY_TTS,
 )
 from .services_lib import (
+    FOLLOW_UP_PLAYBACK_DONE_SCHEMA,
+    GET_PROACTIVE_STATUS_SCHEMA,
     IMAGE_ANALYZER_SCHEMA,
     IMAGE_GENERATOR_SCHEMA,
+    RECORD_HABIT_EVENT_SCHEMA,
     STT_SCHEMA,
     TTS_SCHEMA,
     handle_analyze_image,
@@ -42,6 +48,7 @@ from .services_lib import (
     handle_tts_speech,
     handle_tts_stream,
 )
+from .proactive import get_proactive_manager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -216,6 +223,37 @@ async def _handle_stt_transcribe(call: ServiceCall) -> dict:
     )
 
 
+async def _handle_follow_up_playback_done(call: ServiceCall) -> dict:
+    hass = _REGISTERED_HASS
+    if hass is None:
+        return {"success": False, "error": "HA AI is not initialized"}
+    return await get_proactive_manager(hass).async_handle_playback_done(
+        pending_id=call.data.get("pending_id"),
+        device_id=call.data.get("device_id"),
+        conversation_id=call.data.get("conversation_id"),
+    )
+
+
+async def _handle_record_habit_event(call: ServiceCall) -> dict:
+    hass = _REGISTERED_HASS
+    if hass is None:
+        return {"success": False, "error": "HA AI is not initialized"}
+    return await get_proactive_manager(hass).async_record_habit_event(
+        domain=str(call.data["domain"]),
+        service=str(call.data["service"]),
+        entity_id=str(call.data["entity_id"]),
+        device_id=call.data.get("device_id"),
+        source=str(call.data.get("source", "manual")),
+    )
+
+
+async def _handle_get_proactive_status(call: ServiceCall) -> dict:
+    hass = _REGISTERED_HASS
+    if hass is None:
+        return {"success": False, "error": "HA AI is not initialized"}
+    return {"success": True, **await get_proactive_manager(hass).async_status()}
+
+
 async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
     contexts = _get_service_contexts(hass)
     contexts[config_entry.entry_id] = config_entry
@@ -232,6 +270,24 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
     _register_service(hass, SERVICE_GENERATE_IMAGE, _handle_generate_image, IMAGE_GENERATOR_SCHEMA)
     _register_service(hass, SERVICE_TTS_SAY, _handle_tts_say, TTS_SCHEMA)
     _register_service(hass, SERVICE_STT_TRANSCRIBE, _handle_stt_transcribe, STT_SCHEMA)
+    _register_service(
+        hass,
+        SERVICE_FOLLOW_UP_PLAYBACK_DONE,
+        _handle_follow_up_playback_done,
+        FOLLOW_UP_PLAYBACK_DONE_SCHEMA,
+    )
+    _register_service(
+        hass,
+        SERVICE_RECORD_HABIT_EVENT,
+        _handle_record_habit_event,
+        RECORD_HABIT_EVENT_SCHEMA,
+    )
+    _register_service(
+        hass,
+        SERVICE_GET_PROACTIVE_STATUS,
+        _handle_get_proactive_status,
+        GET_PROACTIVE_STATUS_SCHEMA,
+    )
 
     hass.data[_SERVICES_REGISTERED_KEY] = True
     _LOGGER.info("HA AI services registered successfully")
@@ -254,6 +310,9 @@ async def async_unload_services(hass: HomeAssistant, entry_id: str | None = None
     hass.services.async_remove(DOMAIN, SERVICE_GENERATE_IMAGE)
     hass.services.async_remove(DOMAIN, SERVICE_TTS_SAY)
     hass.services.async_remove(DOMAIN, SERVICE_STT_TRANSCRIBE)
+    hass.services.async_remove(DOMAIN, SERVICE_FOLLOW_UP_PLAYBACK_DONE)
+    hass.services.async_remove(DOMAIN, SERVICE_RECORD_HABIT_EVENT)
+    hass.services.async_remove(DOMAIN, SERVICE_GET_PROACTIVE_STATUS)
 
     if _REGISTERED_HASS is hass:
         _REGISTERED_HASS = None

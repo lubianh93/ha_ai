@@ -1,6 +1,6 @@
-"""Service schemas for AI Hub integration - 服务调用数据验证模式.
+"""Service schemas for HA AI integration - 服务调用数据验证模式.
 
-本模块定义所有 AI Hub 服务的数据验证模式 (Schema)。
+本模块定义所有 HA AI 服务的数据验证模式 (Schema)。
 
 可用模式:
 - IMAGE_ANALYZER_SCHEMA: 图像分析服务
@@ -76,3 +76,19 @@ STT_SCHEMA = {
     vol.Required(CONF_STT_FILE): cv.string,
     vol.Optional("model", default=RECOMMENDED_STT_MODEL): cv.string,
 }
+
+FOLLOW_UP_PLAYBACK_DONE_SCHEMA = {
+    vol.Optional("pending_id"): cv.string,
+    vol.Optional("device_id"): cv.string,
+    vol.Optional("conversation_id"): cv.string,
+}
+
+RECORD_HABIT_EVENT_SCHEMA = {
+    vol.Required("domain"): cv.string,
+    vol.Required("service"): cv.string,
+    vol.Required("entity_id"): cv.entity_id,
+    vol.Optional("device_id"): cv.string,
+    vol.Optional("source", default="manual"): cv.string,
+}
+
+GET_PROACTIVE_STATUS_SCHEMA = {}

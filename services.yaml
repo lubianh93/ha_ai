@@ -222,3 +222,67 @@ tts_say:
           min: 1024
           max: 32768
           step: 1024
+
+follow_up_playback_done:
+  name: 追问播放完成
+  description: ESP32 或播放器在追问 TTS 播放完成后调用，HA AI 会发出继续监听事件。
+  fields:
+    pending_id:
+      name: 追问 ID
+      description: HA AI 创建的 pending_id。推荐 ESP32 回传。
+      required: false
+      selector:
+        text:
+    device_id:
+      name: 设备 ID
+      description: 语音卫星或播放器设备 ID。没有 pending_id 时用于匹配最近追问。
+      required: false
+      selector:
+        text:
+    conversation_id:
+      name: 对话 ID
+      description: 原始 conversation_id。没有 pending_id 时用于匹配最近追问。
+      required: false
+      selector:
+        text:
+
+record_habit_event:
+  name: 记录习惯事件
+  description: 手动记录一次习惯学习观察，用于调试或外部自动化接入。
+  fields:
+    domain:
+      name: 服务域
+      description: 例如 climate、light、switch。
+      required: true
+      selector:
+        text:
+    service:
+      name: 服务
+      description: 例如 turn_on、turn_off、set_temperature。
+      required: true
+      selector:
+        text:
+    entity_id:
+      name: 实体
+      description: 被操作的实体。
+      required: true
+      selector:
+        entity:
+    device_id:
+      name: 设备 ID
+      description: 发起操作的语音设备或上下文设备。
+      required: false
+      selector:
+        text:
+    source:
+      name: 来源
+      description: 事件来源标记。
+      required: false
+      default: manual
+      selector:
+        text:
+
+get_proactive_status:
+  name: 获取主动助手状态
+  description: 返回短期追问上下文、习惯学习候选和当前配置。
+  fields: {}

@@ -22,8 +22,8 @@ class ConfigCache:
     def _get_defaults(self) -> dict[str, Any]:
         """获取默认配置."""
         config = self.get_config()
-        if config and 'intents' in config and 'ai_hub' in config['intents']:
-            return config['intents']['ai_hub'].get('defaults', {})
+        if config and 'intents' in config and 'ha_ai' in config['intents']:
+            return config['intents']['ha_ai'].get('defaults', {})
         return {}
 
     def get_global_keywords(self) -> list[str]:
@@ -31,7 +31,7 @@ class ConfigCache:
         # 首先尝试从GlobalDeviceControl获取
         config = self.get_config()
         if config and 'intents' in config:
-            global_config = config['intents'].get('ai_hub', {}).get('GlobalDeviceControl', {})
+            global_config = config['intents'].get('ha_ai', {}).get('GlobalDeviceControl', {})
             if global_config and 'global_keywords' in global_config:
                 return global_config['global_keywords']
 
@@ -44,7 +44,7 @@ class ConfigCache:
         # 首先尝试从expansion_rules中提取
         config = self.get_config()
         if config and 'intents' in config:
-            expansion_rules = config['intents'].get('ai_hub', {}).get('expansion_rules', {})
+            expansion_rules = config['intents'].get('ha_ai', {}).get('expansion_rules', {})
             local_features = []
             for key, value in expansion_rules.items():
                 if isinstance(value, str) and '|' in value:
@@ -60,11 +60,11 @@ class ConfigCache:
         """获取自动化配置."""
         config = self.get_config()
         if config and 'intents' in config:
-            ai_hub_config = config['intents']['ai_hub']
-            if key in ai_hub_config:
-                return ai_hub_config[key]
+            ha_ai_config = config['intents']['ha_ai']
+            if key in ha_ai_config:
+                return ha_ai_config[key]
             # 从默认配置获取
-            defaults = ai_hub_config.get('defaults', {})
+            defaults = ha_ai_config.get('defaults', {})
             if key in defaults:
                 return defaults[key]
 
@@ -75,12 +75,12 @@ class ConfigCache:
         """获取响应配置."""
         config = self.get_config()
         if config and 'intents' in config:
-            ai_hub_config = config['intents']['ai_hub']
+            ha_ai_config = config['intents']['ha_ai']
             # 首先尝试从responses获取
-            if 'responses' in ai_hub_config:
-                return ai_hub_config['responses']
+            if 'responses' in ha_ai_config:
+                return ha_ai_config['responses']
             # 从默认配置获取
-            defaults = ai_hub_config.get('defaults', {})
+            defaults = ha_ai_config.get('defaults', {})
             if 'responses' in defaults:
                 return defaults['responses']
 
@@ -90,12 +90,12 @@ class ConfigCache:
         """获取验证配置."""
         config = self.get_config()
         if config and 'intents' in config:
-            ai_hub_config = config['intents']['ai_hub']
+            ha_ai_config = config['intents']['ha_ai']
             # 首先尝试从verification获取
-            if 'verification' in ai_hub_config:
-                return ai_hub_config['verification']
+            if 'verification' in ha_ai_config:
+                return ha_ai_config['verification']
             # 从默认配置获取
-            defaults = ai_hub_config.get('defaults', {})
+            defaults = ha_ai_config.get('defaults', {})
             if 'verification' in defaults:
                 return defaults['verification']
 

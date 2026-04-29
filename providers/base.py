@@ -1,4 +1,4 @@
-"""Base provider classes for AI Hub integration.
+"""Base provider classes for HA AI integration.
 
 This module provides the abstract base classes for all service providers,
 including unified configuration and registry management.

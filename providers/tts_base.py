@@ -1,4 +1,4 @@
-"""TTS Provider abstraction for AI Hub integration.
+"""TTS Provider abstraction for HA AI integration.
 
 This module provides the abstract base class for TTS (Text-to-Speech) providers.
 """

@@ -1,4 +1,4 @@
-"""Unified retry mechanism for AI Hub integration.
+"""Unified retry mechanism for HA AI integration.
 
 This module provides a robust retry mechanism with exponential backoff
 for handling transient failures in API calls and network operations.

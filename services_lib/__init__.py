@@ -1,6 +1,6 @@
-"""Services library module for AI Hub integration - 模块化服务.
+"""Services library module for HA AI integration - 模块化服务.
 
-本模块提供 AI Hub 集成的所有服务功能，包括：
+本模块提供 HA AI 集成的所有服务功能，包括：
 
 模块结构:
 - schemas.py: 服务调用的数据验证模式
@@ -37,6 +37,9 @@ from .image import (
 from .schemas import (
     IMAGE_ANALYZER_SCHEMA,
     IMAGE_GENERATOR_SCHEMA,
+    FOLLOW_UP_PLAYBACK_DONE_SCHEMA,
+    GET_PROACTIVE_STATUS_SCHEMA,
+    RECORD_HABIT_EVENT_SCHEMA,
     STT_SCHEMA,
     TTS_SCHEMA,
     TTS_STREAM_SCHEMA,
@@ -56,6 +59,9 @@ __all__ = [
     # Schemas
     "IMAGE_ANALYZER_SCHEMA",
     "IMAGE_GENERATOR_SCHEMA",
+    "FOLLOW_UP_PLAYBACK_DONE_SCHEMA",
+    "GET_PROACTIVE_STATUS_SCHEMA",
+    "RECORD_HABIT_EVENT_SCHEMA",
     "TTS_SCHEMA",
     "TTS_STREAM_SCHEMA",
     "STT_SCHEMA",

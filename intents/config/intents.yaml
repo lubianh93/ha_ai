@@ -52,7 +52,7 @@ intents:
   # ------------------------------------------------
   # C. 窗帘控制意图
   # ------------------------------------------------
-  AIHUB_CoverGetStateIntent:
+  HA_AI_CoverGetStateIntent:
     use_home_assistant: true
     data:
       - sentences:
@@ -84,7 +84,7 @@ intents:
         slots:
           domain: cover
 
-  AIHUB_CoverSetPositionIntent:
+  HA_AI_CoverSetPositionIntent:
     use_home_assistant: true
     data:
       - sentences:

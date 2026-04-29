@@ -1,4 +1,4 @@
-"""Provider abstraction for AI Hub integration.
+"""Provider abstraction for HA AI integration.
 
 This module provides a unified abstraction layer for all service providers
 (LLM, TTS, STT), making it easy to add support for new providers and

@@ -1,4 +1,4 @@
-"""Provider Development Guide for AI Hub Integration.
+"""Provider Development Guide for HA AI Integration.
 
 This file serves as a template and guide for adding new service providers.
 Each provider type (LLM, TTS, STT) has its own base class and requirements.

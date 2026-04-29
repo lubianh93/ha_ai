@@ -42,11 +42,11 @@ else:
         Platform.SENSOR,
     ]
 
-AIHubConfigEntry: TypeAlias = ConfigEntry  # Store API key
+HAAIConfigEntry: TypeAlias = ConfigEntry  # Store API key
 
 
 @dataclass
-class AIHubData:
+class HAAIData:
     """Runtime data for HA AI integration.
 
     This class holds all runtime state for the integration,
@@ -56,6 +56,7 @@ class AIHubData:
     api_key: str | None = None
     tts_cache: Any = None
     automation_manager: Any = None
+    proactive_manager: Any = None
     provider_registry: Any = None
     diagnostics_collector: Any = None
     stats: dict[str, Any] = field(default_factory=dict)
@@ -65,18 +66,19 @@ class AIHubData:
         if self.tts_cache is not None:
             self.tts_cache.clear()
         self.automation_manager = None
+        self.proactive_manager = None
         self.provider_registry = None
 
 
-def get_ai_hub_data(hass: HomeAssistant) -> AIHubData | None:
+def get_ha_ai_data(hass: HomeAssistant) -> HAAIData | None:
     """Get HA AI runtime data."""
     return hass.data.get(DOMAIN)
 
 
-def get_or_create_ai_hub_data(hass: HomeAssistant) -> AIHubData:
+def get_or_create_ha_ai_data(hass: HomeAssistant) -> HAAIData:
     """Get or create HA AI runtime data."""
     if DOMAIN not in hass.data:
-        hass.data[DOMAIN] = AIHubData()
+        hass.data[DOMAIN] = HAAIData()
     return hass.data[DOMAIN]
 
 
@@ -94,13 +96,13 @@ def get_provider_registry(hass: HomeAssistant):
     """
     from .providers import get_registry
 
-    ai_hub_data = get_or_create_ai_hub_data(hass)
-    if ai_hub_data.provider_registry is None:
-        ai_hub_data.provider_registry = get_registry()
-    return ai_hub_data.provider_registry
+    ha_ai_data = get_or_create_ha_ai_data(hass)
+    if ha_ai_data.provider_registry is None:
+        ha_ai_data.provider_registry = get_registry()
+    return ha_ai_data.provider_registry
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: HAAIConfigEntry) -> bool:
     """Set up HA AI from a config entry."""
 
     # Get API key (may be None if not provided)
@@ -108,6 +110,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> boo
 
     # Store API key in runtime_data for subentries/entities
     entry.runtime_data = api_key
+
+    from .proactive import get_proactive_manager
+    from .services import async_setup_services
+
+    await get_proactive_manager(hass).async_register_entry(entry)
+    await async_setup_services(hass, entry)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
@@ -118,16 +126,19 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
     await hass.config_entries.async_reload(entry.entry_id)
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: HAAIConfigEntry) -> bool:
     """Unload a config entry."""
     # Unload services first
     from .services import async_unload_services
-    await async_unload_services(hass)
+    await async_unload_services(hass, entry.entry_id)
+
+    from .proactive import get_proactive_manager
+    await get_proactive_manager(hass).async_unregister_entry(entry.entry_id)
 
     # Clean up runtime data
-    ai_hub_data = get_ai_hub_data(hass)
-    if ai_hub_data is not None:
-        ai_hub_data.cleanup()
+    ha_ai_data = get_ha_ai_data(hass)
+    if ha_ai_data is not None:
+        ha_ai_data.cleanup()
         hass.data.pop(DOMAIN, None)
 
     # Unload all platforms

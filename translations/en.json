@@ -25,7 +25,31 @@
     "step": {
       "init": {
         "title": "Configuration Options",
-        "description": "Please find the corresponding subentries (Conversation Agent or AI Task) in the integration details page, and click the configuration button on the right side of each subentry to modify settings.\n\nClick 'HA AI' on the integrations page to enter the details page, where you will see the list of configured subentries, each of which can be configured individually."
+        "description": "Manage reusable provider API keys, proactive follow-up, and habit learning. Detailed model/provider settings are still configured on each subentry.",
+        "data": {
+          "api_keys": "Provider API Keys",
+          "follow_up_enabled": "Proactive Follow-up",
+          "follow_up_timeout_seconds": "Follow-up Timeout",
+          "follow_up_max_attempts": "Max Follow-up Attempts",
+          "habit_learning_enabled": "Habit Learning",
+          "habit_min_observations": "Minimum Observations",
+          "habit_confidence_threshold": "Confidence Threshold",
+          "habit_temperature_sensors": "Temperature Sensors",
+          "habit_presence_entities": "Presence Entities",
+          "habit_action_domains": "Action Domains"
+        },
+        "data_description": {
+          "api_keys": "Reusable API keys as JSON, for example {\"openai\":\"sk-...\",\"aliyun\":\"...\"}",
+          "follow_up_enabled": "Create short-lived pending contexts when HA AI asks a clarification question.",
+          "follow_up_timeout_seconds": "How long a pending clarification can wait for playback_done or a user reply.",
+          "follow_up_max_attempts": "How many automatic listen attempts a pending clarification may request.",
+          "habit_learning_enabled": "Observe configured service calls and build habit candidates. It will not create automations without later confirmation.",
+          "habit_min_observations": "Minimum observations before a habit candidate is considered useful.",
+          "habit_confidence_threshold": "Confidence threshold used by future suggestion logic.",
+          "habit_temperature_sensors": "Comma-separated temperature sensors to snapshot when a habit event is recorded.",
+          "habit_presence_entities": "Comma-separated person/binary_sensor entities to snapshot when a habit event is recorded.",
+          "habit_action_domains": "Comma-separated service domains to observe, such as climate,light,switch,fan."
+        }
       }
     },
     "abort": {

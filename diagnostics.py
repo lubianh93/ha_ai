@@ -1,4 +1,4 @@
-"""Diagnostics support for AI Hub integration.
+"""Diagnostics support for HA AI integration.
 
 This module provides diagnostic information collection for troubleshooting and
 debugging purposes. The diagnostics data is accessible through Home Assistant's
@@ -139,7 +139,7 @@ async def async_get_config_entry_diagnostics(
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
     diagnostics: dict[str, Any] = {
-        "ai_hub": {
+        "ha_ai": {
             "integration": {
                 "domain": DOMAIN,
                 "title": entry.title,

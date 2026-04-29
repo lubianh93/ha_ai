@@ -1,4 +1,4 @@
-"""Utils module for AI Hub integration."""
+"""Utils module for HA AI integration."""
 
 from __future__ import annotations
 

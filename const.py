@@ -85,8 +85,8 @@ OPENAI_COMPATIBLE_STT_URL: Final = API_URLS["openai_stt"]
 SILICONFLOW_API_BASE: Final = API_URLS["siliconflow_base"]
 SILICONFLOW_ASR_URL: Final = API_URLS["siliconflow_asr"]
 # Legacy aliases kept so existing YAML/scripts do not break.
-AI_HUB_CHAT_URL: Final = API_URLS["siliconflow_chat"]
-AI_HUB_IMAGE_GEN_URL: Final = API_URLS["siliconflow_image"]
+HA_AI_CHAT_URL: Final = API_URLS["siliconflow_chat"]
+HA_AI_IMAGE_GEN_URL: Final = API_URLS["siliconflow_image"]
 
 CONF_STT_URL: Final = "stt_url"
 
@@ -204,6 +204,17 @@ CONF_LONG_MEMORY_MAX_CHARS: Final = "long_memory_max_chars"
 CONF_LONG_MEMORY_PINNED: Final = "long_memory_pinned"
 CONF_LONG_MEMORY_GLOBAL: Final = "long_memory_global"
 CONF_LONG_MEMORY_CONVERSATION: Final = "long_memory_conversation"
+
+# Proactive assistant and habit learning
+CONF_FOLLOW_UP_ENABLED: Final = "follow_up_enabled"
+CONF_FOLLOW_UP_TIMEOUT_SECONDS: Final = "follow_up_timeout_seconds"
+CONF_FOLLOW_UP_MAX_ATTEMPTS: Final = "follow_up_max_attempts"
+CONF_HABIT_LEARNING_ENABLED: Final = "habit_learning_enabled"
+CONF_HABIT_MIN_OBSERVATIONS: Final = "habit_min_observations"
+CONF_HABIT_CONFIDENCE_THRESHOLD: Final = "habit_confidence_threshold"
+CONF_HABIT_TEMPERATURE_SENSORS: Final = "habit_temperature_sensors"
+CONF_HABIT_PRESENCE_ENTITIES: Final = "habit_presence_entities"
+CONF_HABIT_ACTION_DOMAINS: Final = "habit_action_domains"
 
 # TTS Configuration
 CONF_TTS_PROVIDER: Final = "tts_provider"
@@ -389,7 +400,7 @@ TTS_DEFAULT_VOICES: Final = {
 # =============================================================================
 
 # Chat model examples
-AI_HUB_CHAT_MODELS: Final = [
+HA_AI_CHAT_MODELS: Final = [
     "gpt-4o-mini",
     "gpt-4o",
     "gpt-4.1-mini",
@@ -416,14 +427,14 @@ AI_HUB_CHAT_MODELS: Final = [
     "mistralai/Mistral-7B-Instruct-v0.3",
     "THUDM/glm-4-9b-chat",
 ]
-CHAT_MODEL_EXAMPLES: Final = AI_HUB_CHAT_MODELS
+CHAT_MODEL_EXAMPLES: Final = HA_AI_CHAT_MODELS
 
 # Image generation models
-AI_HUB_IMAGE_MODELS: Final = [
+HA_AI_IMAGE_MODELS: Final = [
     "gpt-image-1",
     "Kwai-Kolors/Kolors",
 ]
-IMAGE_MODEL_EXAMPLES: Final = AI_HUB_IMAGE_MODELS
+IMAGE_MODEL_EXAMPLES: Final = HA_AI_IMAGE_MODELS
 
 # Vision models (support image analysis)
 VISION_MODELS: Final = [
@@ -487,6 +498,9 @@ SERVICES: Final = {
     "analyze_image": "analyze_image",
     "tts_say": "tts_say",
     "stt_transcribe": "stt_transcribe",
+    "follow_up_playback_done": "follow_up_playback_done",
+    "record_habit_event": "record_habit_event",
+    "get_proactive_status": "get_proactive_status",
 }
 
 # Legacy service constants
@@ -497,6 +511,18 @@ SERVICE_TTS_SAY: Final = SERVICES["tts_say"]
 SERVICE_TTS_SPEECH: Final = "tts_speech"
 SERVICE_TTS_STREAM: Final = "tts_stream"
 SERVICE_STT_TRANSCRIBE: Final = SERVICES["stt_transcribe"]
+SERVICE_FOLLOW_UP_PLAYBACK_DONE: Final = SERVICES["follow_up_playback_done"]
+SERVICE_RECORD_HABIT_EVENT: Final = SERVICES["record_habit_event"]
+SERVICE_GET_PROACTIVE_STATUS: Final = SERVICES["get_proactive_status"]
+
+EVENT_FOLLOW_UP_LISTEN_REQUESTED: Final = f"{DOMAIN}_follow_up_listen_requested"
+EVENT_HABIT_CANDIDATE_UPDATED: Final = f"{DOMAIN}_habit_candidate_updated"
+
+DEFAULT_FOLLOW_UP_TIMEOUT_SECONDS: Final = 45
+DEFAULT_FOLLOW_UP_MAX_ATTEMPTS: Final = 1
+DEFAULT_HABIT_MIN_OBSERVATIONS: Final = 5
+DEFAULT_HABIT_CONFIDENCE_THRESHOLD: Final = 0.7
+DEFAULT_HABIT_ACTION_DOMAINS: Final = "climate,light,switch,fan"
 
 
 # =============================================================================

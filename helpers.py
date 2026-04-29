@@ -1,4 +1,4 @@
-"""Helper functions for AI Hub integration."""
+"""Helper functions for HA AI integration."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""AI Task support for AI Hub."""
+"""AI Task support for HA AI."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from .const import (
     RECOMMENDED_IMAGE_MODEL,
     VISION_MODELS,
 )
-from .entity import AIHubBaseLLMEntity
+from .entity import HAAIBaseLLMEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -68,16 +68,16 @@ async def async_setup_entry(
             continue
 
         async_add_entities(
-            [AIHubTaskEntity(config_entry, subentry)],
+            [HAAITaskEntity(config_entry, subentry)],
             config_subentry_id=subentry.subentry_id,
         )
 
 
-class AIHubTaskEntity(
+class HAAITaskEntity(
     ai_task.AITaskEntity,
-    AIHubBaseLLMEntity,
+    HAAIBaseLLMEntity,
 ):
-    """AI Hub AI Task entity."""
+    """HA AI AI Task entity."""
 
     def __init__(
         self, entry: ConfigEntry, subentry: ConfigSubentry
@@ -219,13 +219,13 @@ class AIHubTaskEntity(
         request_params = {
             "model": image_model,
             "prompt": user_message.content,
-            "size": "1024x1024",  # Default size, AI Hub supports various sizes
+            "size": "1024x1024",  # Default size, HA AI supports various sizes
         }
 
         _LOGGER.info("Generating image with model: %s, prompt: %s", image_model, user_message.content[:100])
 
         try:
-            # Call AI Hub image generation API via HTTP
+            # Call HA AI image generation API via HTTP
             headers = {
                 "Authorization": f"Bearer {self._api_key}",
                 "Content-Type": "application/json",

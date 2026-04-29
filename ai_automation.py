@@ -85,7 +85,7 @@ class AIAutomationManager:
         name: str | None = None,
         area_id: str | None = None
     ) -> str | None:
-        """Generate automation YAML using the AI Hub conversation engine."""
+        """Generate automation YAML using the HA AI conversation engine."""
         try:
             # Build YAML generation prompt (Chinese for Chinese LLM)
             yaml_prompt = f"""请根据以下描述生成一个标准的Home Assistant自动化YAML配置：
@@ -143,7 +143,7 @@ mode: single
             return None
 
     async def _call_configured_llm_for_yaml(self, prompt: str) -> str | None:
-        """Call AI Hub API directly for YAML generation."""
+        """Call HA AI API directly for YAML generation."""
         try:
             import aiohttp
 
@@ -154,7 +154,7 @@ mode: single
 
             chat_url, model, api_key = llm_config
             if not api_key:
-                _LOGGER.error("No AI Hub API key available")
+                _LOGGER.error("No HA AI API key available")
                 return None
 
             # Build request parameters
@@ -195,14 +195,14 @@ mode: single
                     # Extract response content
                     if "choices" in response_data and len(response_data["choices"]) > 0:
                         content = response_data["choices"][0]["message"]["content"]
-                        _LOGGER.info("AI Hub response received for YAML generation")
+                        _LOGGER.info("HA AI response received for YAML generation")
                         return content
                     else:
-                        _LOGGER.error("Invalid response format from AI Hub")
+                        _LOGGER.error("Invalid response format from HA AI")
                         return None
 
         except Exception as e:
-            _LOGGER.error("Error calling AI Hub API: %s", e)
+            _LOGGER.error("Error calling HA AI API: %s", e)
             return None
 
     def _get_llm_config(self) -> tuple[str, str, str | None] | None:
@@ -211,9 +211,9 @@ mode: single
             from homeassistant.config_entries import ConfigEntries
 
             config_entries: ConfigEntries = self.hass.config_entries
-            ai_hub_entries = config_entries.async_entries_for_domain(DOMAIN)
+            ha_ai_entries = config_entries.async_entries_for_domain(DOMAIN)
 
-            for entry in ai_hub_entries:
+            for entry in ha_ai_entries:
                 if not getattr(entry, "subentries", None):
                     continue
                 chat_url, model, api_key = resolve_entry_config(
@@ -225,7 +225,7 @@ mode: single
                 if api_key:
                     return str(chat_url), str(model), api_key
 
-            _LOGGER.warning("No AI Hub configuration found")
+            _LOGGER.warning("No HA AI configuration found")
             return None
 
         except Exception as e:
@@ -421,7 +421,7 @@ mode: single'''
                 # Write config file
                 with open(automations_file, 'w', encoding='utf-8') as f:
                     f.write("# Home Assistant Automations\n")
-                    f.write("# Generated/Modified by AI Hub Integration\n\n")
+                    f.write("# Generated/Modified by HA AI Integration\n\n")
                     yaml.dump(existing_automations, f,
                               default_flow_style=False,
                               allow_unicode=True,
@@ -442,12 +442,12 @@ mode: single'''
 
 def get_automation_manager(hass: HomeAssistant) -> AIAutomationManager:
     """Get the AI automation manager instance from hass.data."""
-    from . import get_or_create_ai_hub_data
+    from . import get_or_create_ha_ai_data
 
-    ai_hub_data = get_or_create_ai_hub_data(hass)
-    if ai_hub_data.automation_manager is None:
-        ai_hub_data.automation_manager = AIAutomationManager(hass)
-    return ai_hub_data.automation_manager
+    ha_ai_data = get_or_create_ha_ai_data(hass)
+    if ha_ai_data.automation_manager is None:
+        ha_ai_data.automation_manager = AIAutomationManager(hass)
+    return ha_ai_data.automation_manager
 
 
 async def async_setup_ai_automation(hass: HomeAssistant) -> None:

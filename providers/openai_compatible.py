@@ -1,4 +1,4 @@
-"""OpenAI-compatible LLM provider for AI Hub integration.
+"""OpenAI-compatible LLM provider for HA AI integration.
 
 This module provides an OpenAI-compatible implementation of the LLM provider
 interface, which can be used with any OpenAI-compatible API endpoint.

@@ -1,4 +1,4 @@
-"""Speech to Text support for AI Hub.
+"""Speech to Text support for HA AI.
 
 Features:
 - OpenAI-compatible transcription endpoint support
@@ -38,7 +38,7 @@ from .const import (
     STT_MIN_AUDIO_SIZE,
     STT_WARNING_AUDIO_SIZE,
 )
-from .entity import AIHubEntityBase
+from .entity import HAAIEntityBase
 from .markdown_filter import filter_markdown_content
 from .utils.retry import RetryConfig, RetryError, async_retry
 
@@ -181,13 +181,13 @@ async def async_setup_entry(
             continue
 
         async_add_entities(
-            [AIHubSTTEntity(config_entry, subentry)],
+            [HAAISTTEntity(config_entry, subentry)],
             config_subentry_id=subentry.subentry_id,
         )
 
 
-class AIHubSTTEntity(SpeechToTextEntity, AIHubEntityBase):
-    """AI Hub speech-to-text entity."""
+class HAAISTTEntity(SpeechToTextEntity, HAAIEntityBase):
+    """HA AI speech-to-text entity."""
 
     _attr_has_entity_name = False
     _attr_supported_options = ["model", "language"]
@@ -201,7 +201,7 @@ class AIHubSTTEntity(SpeechToTextEntity, AIHubEntityBase):
         self._attr_device_info = dr.DeviceInfo(
             identifiers={(DOMAIN, subentry.subentry_id)},
             name=subentry.title,
-            manufacturer="AI Hub",
+            manufacturer="HA AI",
             model=str(subentry.data.get(CONF_STT_PROVIDER, DEFAULT_STT_PROVIDER)),
             entry_type=dr.DeviceEntryType.SERVICE,
         )

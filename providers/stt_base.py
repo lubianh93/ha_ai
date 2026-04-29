@@ -1,4 +1,4 @@
-"""STT Provider abstraction for AI Hub integration.
+"""STT Provider abstraction for HA AI integration.
 
 This module provides the abstract base class for STT (Speech-to-Text) providers.
 """

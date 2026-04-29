@@ -1,4 +1,4 @@
-"""TTS cache utilities for AI Hub integration.
+"""TTS cache utilities for HA AI integration.
 
 This module provides caching functionality for TTS responses
 to improve performance and reduce API calls for repeated phrases.

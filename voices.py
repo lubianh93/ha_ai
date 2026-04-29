@@ -1,4 +1,4 @@
-"""Edge TTS voice definitions for AI Hub integration.
+"""Edge TTS voice definitions for HA AI integration.
 
 This file contains the complete list of Edge TTS voices.
 Separated from const.py to keep that file manageable.

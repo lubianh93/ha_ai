@@ -1,4 +1,4 @@
-"""Base entity for AI Hub integration."""
+"""Base entity for HA AI integration."""
 
 from __future__ import annotations
 
@@ -71,10 +71,10 @@ def _ensure_string(value: Any) -> str:
     return str(value)
 
 
-class _AIHubEntityMixin:
-    """Mixin class providing common initialization logic for AI Hub entities.
+class _HAAIEntityMixin:
+    """Mixin class providing common initialization logic for HA AI entities.
 
-    This mixin provides shared initialization behavior for all AI Hub entity types:
+    This mixin provides shared initialization behavior for all HA AI entity types:
     - LLM conversation entities
     - TTS entities
     - STT entities
@@ -89,13 +89,13 @@ class _AIHubEntityMixin:
     _attr_has_entity_name = False
     _attr_should_poll = False
 
-    def _initialize_aihub_entity(
+    def _initialize_ha_ai_entity(
         self,
         entry: config_entry_flow.ConfigEntry,
         subentry: config_entry_flow.ConfigSubentry,
         default_model: str,
     ) -> None:
-        """Initialize common AI Hub entity attributes.
+        """Initialize common HA AI entity attributes.
 
         This method should be called from the entity's __init__ method.
 
@@ -164,14 +164,14 @@ class _AIHubEntityMixin:
         return dr.DeviceInfo(
             identifiers={(domain, self.subentry.subentry_id)},
             name=self.subentry.title,
-            manufacturer="老王杂谈说",
+            manufacturer="Fork自老王杂谈说",
             model=self._get_device_model(self.default_model),
             entry_type=dr.DeviceEntryType.SERVICE,
         )
 
 
-class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
-    """Base entity for AI Hub LLM."""
+class HAAIBaseLLMEntity(Entity, _HAAIEntityMixin):
+    """Base entity for HA AI LLM."""
 
     def __init__(
         self,
@@ -181,7 +181,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
     ) -> None:
         """Initialize the entity."""
         # Use mixin initialization
-        self._initialize_aihub_entity(entry, subentry, default_model)
+        self._initialize_ha_ai_entity(entry, subentry, default_model)
         # Create device info using mixin method
         self._attr_device_info = self._create_device_info(DOMAIN)
 
@@ -682,7 +682,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
     async def _async_convert_chat_log_to_messages(
         self, chat_log: conversation.ChatLog
     ) -> list[dict[str, Any]]:
-        """Convert chat log to AI Hub message format."""
+        """Convert chat log to HA AI message format."""
         options = self.subentry.data
         max_history = options.get(CONF_MAX_HISTORY_MESSAGES, RECOMMENDED_MAX_HISTORY_MESSAGES)
 
@@ -777,7 +777,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
     async def _convert_user_message(
         self, content: conversation.Content
     ) -> dict[str, Any]:
-        """Convert user message to AI Hub format."""
+        """Convert user message to HA AI format."""
         message: dict[str, Any] = {"role": "user"}
 
         if not content.attachments:
@@ -939,7 +939,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
     def _convert_assistant_message(
         self, content: conversation.Content
     ) -> dict[str, Any]:
-        """Convert assistant message to AI Hub format."""
+        """Convert assistant message to HA AI format."""
         message: dict[str, Any] = {"role": "assistant"}
 
         if content.tool_calls:
@@ -972,7 +972,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
     def _convert_tool_message(
         self, content: conversation.Content
     ) -> dict[str, Any]:
-        """Convert tool result to AI Hub format."""
+        """Convert tool result to HA AI format."""
         # Ensure tool_call_id is always a valid string
         # API requires a non-empty tool_call_id
         tool_call_id = content.tool_call_id
@@ -994,7 +994,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
     def _format_tool(
         self, tool: llm.Tool, custom_serializer: Callable[[Any], Any] | None
     ) -> dict[str, Any]:
-        """Format tool for AI Hub API."""
+        """Format tool for HA AI API."""
         # Ensure tool name and description are valid strings
         tool_name = str(tool.name) if tool.name else ""
         tool_description = str(tool.description) if tool.description else ""
@@ -1011,8 +1011,8 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
     def _convert_schema(
         self, schema: dict[str, Any], custom_serializer: Callable[[Any], Any] | None
     ) -> dict[str, Any]:
-        """Convert schema to AI Hub format."""
-        # AI Hub uses standard JSON Schema
+        """Convert schema to HA AI format."""
+        # HA AI uses standard JSON Schema
         # Use voluptuous_openapi to convert the schema properly
         try:
             return convert(
@@ -1034,7 +1034,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
     ) -> AsyncGenerator[
         conversation.AssistantContentDeltaDict | conversation.ToolResultContentDeltaDict
     ]:
-        """Transform AI Hub SSE stream into HA format."""
+        """Transform HA AI SSE stream into HA format."""
         buffer = ""
         tool_call_buffer: dict[int, dict[str, Any]] = {}
         has_started = False
@@ -1257,8 +1257,8 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
             raise Exception(f"Failed to read file {file_path}: {err}")
 
 
-class AIHubEntityBase(Entity, _AIHubEntityMixin):
-    """Base entity for AI Hub integration.
+class HAAIEntityBase(Entity, _HAAIEntityMixin):
+    """Base entity for HA AI integration.
 
     This class is used by TTS and STT entities which don't need the full
     LLM functionality but require the same initialization logic.
@@ -1272,6 +1272,6 @@ class AIHubEntityBase(Entity, _AIHubEntityMixin):
     ) -> None:
         """Initialize the entity."""
         # Use mixin initialization
-        self._initialize_aihub_entity(entry, subentry, default_model)
+        self._initialize_ha_ai_entity(entry, subentry, default_model)
         # Create device info using mixin method
         self._attr_device_info = self._create_device_info(DOMAIN)
